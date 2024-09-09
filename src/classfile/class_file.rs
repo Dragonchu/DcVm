@@ -1,5 +1,8 @@
+use std::fmt;
+
 use crate::classfile::types::{U1, U2, U4};
 
+#[derive(Debug)]
 pub enum CpInfo {
     Class(ConstantClassInfo),
     Double(ConstantDoubleInfo),
@@ -59,6 +62,7 @@ impl TryFrom<u8> for ConstantInfoTag {
 }
 
 //The CONSTANT_Class_info Structure
+#[derive(Debug)]
 pub struct ConstantClassInfo {
     tag: U1,
     name_index: U2,
@@ -73,6 +77,7 @@ impl ConstantClassInfo {
     }
 }
 
+#[derive(Debug)]
 //The CONSTANT_Fieldref_info, CONSTANT_Methodref_info, and CONSTANT_InterfaceMethodref_info Structures
 pub struct ConstantFieldrefInfo {
     tag: U1,
@@ -90,6 +95,7 @@ impl ConstantFieldrefInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct ConstantMethodrefInfo {
     tag: U1,
     class_index: U2,
@@ -106,6 +112,7 @@ impl ConstantMethodrefInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct ConstantInterfaceMethodrefInfo {
     tag: U1,
     class_index: U2,
@@ -122,6 +129,7 @@ impl ConstantInterfaceMethodrefInfo {
     }
 }
 
+#[derive(Debug)]
 //The CONSTANT_String_info Structure
 pub struct ConstantStringInfo {
     tag: U1,
@@ -138,6 +146,7 @@ impl ConstantStringInfo {
 }
 
 //The CONSTANT_Integer_info and CONSTANT_Float_info Structures
+#[derive(Debug)]
 pub struct ConstantIntegerInfo {
     tag: U1,
     bytes: U4,
@@ -152,6 +161,7 @@ impl ConstantIntegerInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct ConstantFloatInfo {
     tag: U1,
     bytes: U4,
@@ -166,8 +176,8 @@ impl ConstantFloatInfo {
     }
 }
 
-
 //The CONSTANT_Long_info and CONSTANT_Double_info Structures
+#[derive(Debug)]
 pub struct ConstantLongInfo {
     tag: U1,
     high_bytes: U4,
@@ -184,6 +194,7 @@ impl ConstantLongInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct ConstantDoubleInfo {
     tag: U1,
     high_bytes: U4,
@@ -201,6 +212,7 @@ impl ConstantDoubleInfo {
 }
 
 //The CONSTANT_NameAndType_info Structure
+#[derive(Debug)]
 pub struct ConstantNameAndTypeInfo {
     tag: U1,
     name_index: U2,
@@ -234,7 +246,14 @@ impl ConstantUtf8Info {
     }
 }
 
+impl fmt::Debug for ConstantUtf8Info {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "tag: {}, length: {}, bytes: {:?}", self.tag, self.length, std::str::from_utf8(&self.bytes).unwrap())
+    }
+}
+
 //The CONSTANT_MethodHandle_info Structure
+#[derive(Debug)]
 pub struct ConstantMethodHandleInfo {
     tag: U1,
     reference_kind: U1,
@@ -252,6 +271,7 @@ impl ConstantMethodHandleInfo {
 }
 
 //The CONSTANT_MethodType_info Structure
+#[derive(Debug)]
 pub struct ConstantMethodTypeInfo {
     tag: U1,
     descriptor_index: U2,
@@ -267,6 +287,7 @@ impl ConstantMethodTypeInfo {
 }
 
 //The CONSTANT_InvokeDynamic_info Structure
+#[derive(Debug)]
 pub struct ConstantInvokeDynamicInfo {
     tag: U1,
     bootstrap_method_attr_index: U2,
@@ -283,6 +304,7 @@ impl ConstantInvokeDynamicInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct AttributeInfo {
     attribute_name_index: U2,
     attribute_length: U4,
@@ -299,6 +321,7 @@ impl AttributeInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct FieldInfo {
     access_flags: U2,
     name_index: U2,
@@ -308,7 +331,12 @@ pub struct FieldInfo {
 }
 
 impl FieldInfo {
-    pub fn new(access_flags: U2, name_index: U2, descriptor_index: U2, attributes: Vec<AttributeInfo>) -> Self {
+    pub fn new(
+        access_flags: U2,
+        name_index: U2,
+        descriptor_index: U2,
+        attributes: Vec<AttributeInfo>,
+    ) -> Self {
         Self {
             access_flags,
             name_index,
@@ -319,6 +347,7 @@ impl FieldInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct MethodInfo {
     access_flags: U2,
     name_index: U2,
@@ -328,7 +357,12 @@ pub struct MethodInfo {
 }
 
 impl MethodInfo {
-    pub fn new(access_flags: U2, name_index: U2, descriptor_index: U2, attributes: Vec<AttributeInfo>) -> Self {
+    pub fn new(
+        access_flags: U2,
+        name_index: U2,
+        descriptor_index: U2,
+        attributes: Vec<AttributeInfo>,
+    ) -> Self {
         Self {
             access_flags,
             name_index,
@@ -339,6 +373,7 @@ impl MethodInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct ClassFile {
     magic: U4,
     minor_version: U2,
@@ -359,7 +394,24 @@ pub struct ClassFile {
 }
 
 impl ClassFile {
-    pub fn new(magic: U4, minor_version: U2, major_version: U2, constant_pool_count: U2, constant_pool: Vec<CpInfo>, access_flags: U2, this_class: U2, super_class: U2, interfaces_count: U2, interfaces: Vec<U2>, fields_count: U2, fields: Vec<FieldInfo>, methods_count: U2, methods: Vec<MethodInfo>, attributes_count: U2, attributes: Vec<AttributeInfo>) -> Self {
+    pub fn new(
+        magic: U4,
+        minor_version: U2,
+        major_version: U2,
+        constant_pool_count: U2,
+        constant_pool: Vec<CpInfo>,
+        access_flags: U2,
+        this_class: U2,
+        super_class: U2,
+        interfaces_count: U2,
+        interfaces: Vec<U2>,
+        fields_count: U2,
+        fields: Vec<FieldInfo>,
+        methods_count: U2,
+        methods: Vec<MethodInfo>,
+        attributes_count: U2,
+        attributes: Vec<AttributeInfo>,
+    ) -> Self {
         Self {
             magic,
             minor_version,
@@ -378,5 +430,12 @@ impl ClassFile {
             attributes_count,
             attributes,
         }
+    }
+}
+
+impl fmt::Display for ClassFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "magic: {:x}\nminor_version: {}\nmajor_version: {}\nconstant_pool_count: {}\nconstant_pool: {:?}\naccess_flags: {}\nthis_class: {}\nsuper_class: {}\ninterfaces_count: {}\ninterfaces: {:?}\nfields_count: {}\nfields: {:?}\nmethods_count: {}\nmethods: {:?}\nattributes_count: {}\nattributes: {:?}",
+               self.magic, self.minor_version, self.major_version, self.constant_pool_count, self.constant_pool, self.access_flags, self.this_class, self.super_class, self.interfaces_count, self.interfaces, self.fields_count, self.fields, self.methods_count, self.methods, self.attributes_count, self.attributes)
     }
 }

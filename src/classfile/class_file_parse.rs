@@ -60,11 +60,16 @@ impl ClassReader for Vec<u8> {
 }
 
 impl ClassFileParser {
+    pub fn read(class_file_path: String) -> Self {
+        let class_file_stream = std::fs::read(class_file_path).expect("Failed to read class file");
+        Self { class_file_stream }
+    }
+
     pub fn new(class_file_stream: Vec<u8>) -> Self {
         Self { class_file_stream }
     }
 
-    pub fn parse(&mut self) {
+    pub fn parse(&mut self) -> ClassFile {
         let magic = self.class_file_stream.read_u4();
         let minor_version = self.class_file_stream.read_u2();
         let major_version = self.class_file_stream.read_u2();
@@ -98,7 +103,7 @@ impl ClassFileParser {
             methods,
             attributes_count,
             attributes,
-        );
+        )
     }
 
     pub fn parse_constant_pool(&mut self, constant_pool_count: U2) -> Vec<CpInfo> {
@@ -264,5 +269,19 @@ impl ClassFileParser {
             ));
         }
         methods
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    #[test]
+    fn parse_main_class() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("resources/test/Main.class");
+        let mut parser = ClassFileParser::read(d.display().to_string());
+        let cf = parser.parse();
+        print!("{}", cf);
     }
 }
