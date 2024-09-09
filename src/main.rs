@@ -1,2 +1,4 @@
+mod classfile;
+
 fn main() {
 }

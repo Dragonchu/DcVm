@@ -1,6 +1,6 @@
-use crate::types::{U1, U2, U4};
+use crate::classfile::types::{U1, U2, U4};
 
-enum CpInfo {
+pub enum CpInfo {
     Class(ConstantClassInfo),
     Double(ConstantDoubleInfo),
     FieldRef(ConstantFieldrefInfo),
@@ -17,25 +17,49 @@ enum CpInfo {
     Utf8(ConstantUtf8Info),
 }
 
-enum ConstantInfoTag {
-    ConstantClass = 7,
-    ConstantFieldref = 9,
-    ConstantMethodref = 10,
-    ConstantInterfaceMethodref = 11,
-    ConstantString = 8,
+pub enum ConstantInfoTag {
+    ConstantUtf8 = 1,
     ConstantInteger = 3,
     ConstantFloat = 4,
     ConstantLong = 5,
     ConstantDouble = 6,
+    ConstantClass = 7,
+    ConstantString = 8,
+    ConstantFieldref = 9,
+    ConstantMethodref = 10,
+    ConstantInterfaceMethodref = 11,
     ConstantNameAndType = 12,
-    ConstantUtf8 = 1,
     ConstantMethodHandle = 15,
     ConstantMethodType = 16,
     ConstantInvokeDynamic = 18,
 }
 
+impl TryFrom<u8> for ConstantInfoTag {
+    type Error = ();
+
+    fn try_from(value: U1) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(ConstantInfoTag::ConstantUtf8),
+            3 => Ok(ConstantInfoTag::ConstantInteger),
+            4 => Ok(ConstantInfoTag::ConstantFloat),
+            5 => Ok(ConstantInfoTag::ConstantLong),
+            6 => Ok(ConstantInfoTag::ConstantDouble),
+            7 => Ok(ConstantInfoTag::ConstantClass),
+            8 => Ok(ConstantInfoTag::ConstantString),
+            9 => Ok(ConstantInfoTag::ConstantFieldref),
+            10 => Ok(ConstantInfoTag::ConstantMethodref),
+            11 => Ok(ConstantInfoTag::ConstantInterfaceMethodref),
+            12 => Ok(ConstantInfoTag::ConstantNameAndType),
+            15 => Ok(ConstantInfoTag::ConstantMethodHandle),
+            16 => Ok(ConstantInfoTag::ConstantMethodType),
+            18 => Ok(ConstantInfoTag::ConstantInvokeDynamic),
+            _ => Err(()),
+        }
+    }
+}
+
 //The CONSTANT_Class_info Structure
-struct ConstantClassInfo {
+pub struct ConstantClassInfo {
     tag: U1,
     name_index: U2,
 }
@@ -50,7 +74,7 @@ impl ConstantClassInfo {
 }
 
 //The CONSTANT_Fieldref_info, CONSTANT_Methodref_info, and CONSTANT_InterfaceMethodref_info Structures
-struct ConstantFieldrefInfo {
+pub struct ConstantFieldrefInfo {
     tag: U1,
     class_index: U2,
     name_and_type_index: U2,
@@ -66,7 +90,7 @@ impl ConstantFieldrefInfo {
     }
 }
 
-struct ConstantMethodrefInfo {
+pub struct ConstantMethodrefInfo {
     tag: U1,
     class_index: U2,
     name_and_type_index: U2,
@@ -82,7 +106,7 @@ impl ConstantMethodrefInfo {
     }
 }
 
-struct ConstantInterfaceMethodrefInfo {
+pub struct ConstantInterfaceMethodrefInfo {
     tag: U1,
     class_index: U2,
     name_and_type_index: U2,
@@ -99,7 +123,7 @@ impl ConstantInterfaceMethodrefInfo {
 }
 
 //The CONSTANT_String_info Structure
-struct ConstantStringInfo {
+pub struct ConstantStringInfo {
     tag: U1,
     string_index: U2,
 }
@@ -114,7 +138,7 @@ impl ConstantStringInfo {
 }
 
 //The CONSTANT_Integer_info and CONSTANT_Float_info Structures
-struct ConstantIntegerInfo {
+pub struct ConstantIntegerInfo {
     tag: U1,
     bytes: U4,
 }
@@ -128,7 +152,7 @@ impl ConstantIntegerInfo {
     }
 }
 
-struct ConstantFloatInfo {
+pub struct ConstantFloatInfo {
     tag: U1,
     bytes: U4,
 }
@@ -144,7 +168,7 @@ impl ConstantFloatInfo {
 
 
 //The CONSTANT_Long_info and CONSTANT_Double_info Structures
-struct ConstantLongInfo {
+pub struct ConstantLongInfo {
     tag: U1,
     high_bytes: U4,
     low_bytes: U4,
@@ -160,7 +184,7 @@ impl ConstantLongInfo {
     }
 }
 
-struct ConstantDoubleInfo {
+pub struct ConstantDoubleInfo {
     tag: U1,
     high_bytes: U4,
     low_bytes: U4,
@@ -177,7 +201,7 @@ impl ConstantDoubleInfo {
 }
 
 //The CONSTANT_NameAndType_info Structure
-struct ConstantNameAndTypeInfo {
+pub struct ConstantNameAndTypeInfo {
     tag: U1,
     name_index: U2,
     descriptor_index: U2,
@@ -194,7 +218,7 @@ impl ConstantNameAndTypeInfo {
 }
 
 //The CONSTANT_Utf8_info Structure
-struct ConstantUtf8Info {
+pub struct ConstantUtf8Info {
     tag: U1,
     length: U2,
     bytes: Vec<U1>,
@@ -211,7 +235,7 @@ impl ConstantUtf8Info {
 }
 
 //The CONSTANT_MethodHandle_info Structure
-struct ConstantMethodHandleInfo {
+pub struct ConstantMethodHandleInfo {
     tag: U1,
     reference_kind: U1,
     reference_index: U2,
@@ -228,7 +252,7 @@ impl ConstantMethodHandleInfo {
 }
 
 //The CONSTANT_MethodType_info Structure
-struct ConstantMethodTypeInfo {
+pub struct ConstantMethodTypeInfo {
     tag: U1,
     descriptor_index: U2,
 }
@@ -243,7 +267,7 @@ impl ConstantMethodTypeInfo {
 }
 
 //The CONSTANT_InvokeDynamic_info Structure
-struct ConstantInvokeDynamicInfo {
+pub struct ConstantInvokeDynamicInfo {
     tag: U1,
     bootstrap_method_attr_index: U2,
     name_and_type_index: U2,
@@ -259,13 +283,23 @@ impl ConstantInvokeDynamicInfo {
     }
 }
 
-struct AttributeInfo {
+pub struct AttributeInfo {
     attribute_name_index: U2,
     attribute_length: U4,
     info: Vec<U1>,
 }
 
-struct FieldInfo {
+impl AttributeInfo {
+    pub fn new(attribute_name_index: U2, attribute_length: U4, info: Vec<U1>) -> Self {
+        Self {
+            attribute_name_index,
+            attribute_length,
+            info,
+        }
+    }
+}
+
+pub struct FieldInfo {
     access_flags: U2,
     name_index: U2,
     descriptor_index: U2,
@@ -273,12 +307,36 @@ struct FieldInfo {
     attributes: Vec<AttributeInfo>,
 }
 
-struct MethodInfo {
+impl FieldInfo {
+    pub fn new(access_flags: U2, name_index: U2, descriptor_index: U2, attributes: Vec<AttributeInfo>) -> Self {
+        Self {
+            access_flags,
+            name_index,
+            descriptor_index,
+            attributes_count: attributes.len() as U2,
+            attributes,
+        }
+    }
+}
+
+pub struct MethodInfo {
     access_flags: U2,
     name_index: U2,
     descriptor_index: U2,
     attributes_count: U2,
     attributes: Vec<AttributeInfo>,
+}
+
+impl MethodInfo {
+    pub fn new(access_flags: U2, name_index: U2, descriptor_index: U2, attributes: Vec<AttributeInfo>) -> Self {
+        Self {
+            access_flags,
+            name_index,
+            descriptor_index,
+            attributes_count: attributes.len() as U2,
+            attributes,
+        }
+    }
 }
 
 pub struct ClassFile {
@@ -298,4 +356,27 @@ pub struct ClassFile {
     methods: Vec<MethodInfo>,
     attributes_count: U2,
     attributes: Vec<AttributeInfo>,
+}
+
+impl ClassFile {
+    pub fn new(magic: U4, minor_version: U2, major_version: U2, constant_pool_count: U2, constant_pool: Vec<CpInfo>, access_flags: U2, this_class: U2, super_class: U2, interfaces_count: U2, interfaces: Vec<U2>, fields_count: U2, fields: Vec<FieldInfo>, methods_count: U2, methods: Vec<MethodInfo>, attributes_count: U2, attributes: Vec<AttributeInfo>) -> Self {
+        Self {
+            magic,
+            minor_version,
+            major_version,
+            constant_pool_count,
+            constant_pool,
+            access_flags,
+            this_class,
+            super_class,
+            interfaces_count,
+            interfaces,
+            fields_count,
+            fields,
+            methods_count,
+            methods,
+            attributes_count,
+            attributes,
+        }
+    }
 }
