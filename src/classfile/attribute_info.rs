@@ -155,12 +155,12 @@ pub enum StackMapFrame {
     },
     SameLocals1StackItemFrame {
         frame_type: U1,
-        stack: VerificationTypeInfo,
+        stack: [VerificationTypeInfo;1],
     },
     SameLocals1StackItemFrameExtended {
         frame_type: U1,
         offset_delta: U2,
-        stack: VerificationTypeInfo,
+        stack: [VerificationTypeInfo;1],
     },
     ChopFrame {
         frame_type: U1,
@@ -200,19 +200,19 @@ pub enum VerificationTypeInfo {
 
 #[derive(Debug)]
 pub struct Annotation {
-    type_index: U2,
-    num_element_value_pairs: U2,
-    element_value_pairs: Vec<(U2, Vec<ElementValue>)>,
+    pub type_index: U2,
+    pub num_element_value_pairs: U2,
+    pub element_value_pairs: Vec<(U2, ElementValue)>,
 }
 
 #[derive(Debug)]
-struct ElementValue {
-    tag: U1,
-    value: ElementValueItem,
+pub struct ElementValue {
+    pub tag: U1,
+    pub value: ElementValueItem,
 }
 
 #[derive(Debug)]
-enum ElementValueItem {
+pub enum ElementValueItem {
     ConstValueIndex {
         const_value_index: U2,
     },
