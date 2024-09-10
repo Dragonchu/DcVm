@@ -235,7 +235,7 @@ impl ConstantNameAndTypeInfo {
 pub struct ConstantUtf8Info {
     tag: U1,
     length: U2,
-    bytes: Vec<U1>,
+    pub bytes: Vec<U1>,
 }
 
 impl ConstantUtf8Info {

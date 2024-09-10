@@ -1,13 +1,24 @@
+use crate::classfile::attribute_info::{Annotation, ElementValuePair};
+
 use super::{
+    attribute_info::{
+        AppendFrame, AttributeInfo, ChopFrame, CodeAttribute, ConstantValueAttribute,
+        DeprecatedAttribute, EnclosingMethodAttribute, ExceptionTableEntry, ExceptionsAttribute,
+        FullFrame, InnerClassInfo, InnerClassesAttribute, LineNumberTableAttribute,
+        LineNumberTableEntry, LocalVariableTableAttribute, LocalVariableTableEntry,
+        RuntimeVisibleAnnotationsAttribute, SameFrame, SameFrameExtended,
+        SameLocals1StackItemFrame, SameLocals1StackItemFrameExtended, SignatureAttribute,
+        SourceDebugExtensionAttribute, SourceFileAttribute, StackMapFrame, SyntheticAttribute,
+        VerificationTypeInfo,
+    },
     class_file::{
-        ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo,
-        ConstantFloatInfo, ConstantInfoTag, ConstantIntegerInfo, ConstantInterfaceMethodrefInfo,
+        ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo, ConstantFloatInfo,
+        ConstantInfoTag, ConstantIntegerInfo, ConstantInterfaceMethodrefInfo,
         ConstantInvokeDynamicInfo, ConstantLongInfo, ConstantMethodHandleInfo,
         ConstantMethodTypeInfo, ConstantMethodrefInfo, ConstantNameAndTypeInfo, ConstantStringInfo,
         ConstantUtf8Info, CpInfo, FieldInfo, MethodInfo,
     },
     types::{U1, U2, U4, U8},
-    attribute_info::AttributeInfo,
 };
 
 struct ClassFileParser {
@@ -236,24 +247,6 @@ impl ClassFileParser {
         fields
     }
 
-    pub fn parse_attributes(&mut self, attributes_count: U2) -> Vec<AttributeInfo> {
-        let mut attributes: Vec<AttributeInfo> = Vec::new();
-        for _ in 0..attributes_count {
-            let attribute_name_index = self.class_file_stream.read_u2();
-            let attribute_length = self.class_file_stream.read_u4();
-            let info = self
-                .class_file_stream
-                .drain(0..attribute_length as usize)
-                .collect();
-            attributes.push(AttributeInfo::new(
-                attribute_name_index,
-                attribute_length,
-                info,
-            ));
-        }
-        attributes
-    }
-
     pub fn parse_methods(&mut self, methods_count: U2) -> Vec<MethodInfo> {
         let mut methods: Vec<MethodInfo> = Vec::new();
         for _ in 0..methods_count {
@@ -270,6 +263,413 @@ impl ClassFileParser {
             ));
         }
         methods
+    }
+
+    pub fn parse_attributes(
+        &mut self,
+        attributes_count: U2,
+        constant_pool: &Vec<CpInfo>,
+    ) -> Vec<AttributeInfo> {
+        let mut attributes: Vec<AttributeInfo> = Vec::new();
+        for _ in 0..attributes_count {
+            let attribute_name_index = self.class_file_stream.read_u2();
+            let attribute_length = self.class_file_stream.read_u4();
+            let attribute_name = &constant_pool[attribute_name_index as usize];
+            match attribute_name {
+                CpInfo::Utf8(utf8_info) => {
+                    let attribute_name = String::from_utf8(utf8_info.bytes.clone()).unwrap();
+                    match attribute_name.as_str() {
+                        "ConstantValue" => {
+                            attributes.push(self.read_constant_value_attribute(
+                                attribute_name_index,
+                                attribute_length,
+                            ));
+                        }
+                        "Code" => {
+                            attributes.push(self.read_code_attribute(
+                                attribute_name_index,
+                                attribute_length,
+                                constant_pool,
+                            ));
+                        }
+                        "StackMapTable" => {
+                            let number_of_entries = self.class_file_stream.read_u2();
+                            let stack_map_table = self.parse_stack_map_table(
+                                number_of_entries,
+                                attribute_name_index,
+                                attribute_length,
+                            );
+                            attributes.push(AttributeInfo::StackMapTable(stack_map_table));
+                        }
+                        "Exceptions" => {
+                            let number_of_exceptions = self.class_file_stream.read_u2();
+                            let mut exceptions = Vec::new();
+                            for _ in 0..number_of_exceptions {
+                                exceptions.push(self.class_file_stream.read_u2());
+                            }
+                            attributes.push(AttributeInfo::Exceptions(ExceptionsAttribute::new(
+                                attribute_name_index,
+                                attribute_length,
+                                number_of_exceptions,
+                                exceptions,
+                            )));
+                        }
+                        "InnerClasses" => {
+                            let number_of_classes = self.class_file_stream.read_u2();
+                            let mut classes = Vec::new();
+                            for _ in 0..number_of_classes {
+                                let inner_class_info_index = self.class_file_stream.read_u2();
+                                let outer_class_info_index = self.class_file_stream.read_u2();
+                                let inner_name_index = self.class_file_stream.read_u2();
+                                let inner_class_access_flags = self.class_file_stream.read_u2();
+                                classes.push(InnerClassInfo::new(
+                                    inner_class_info_index,
+                                    outer_class_info_index,
+                                    inner_name_index,
+                                    inner_class_access_flags,
+                                ));
+                            }
+                            attributes.push(AttributeInfo::InnerClasses(
+                                InnerClassesAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    number_of_classes,
+                                    classes,
+                                ),
+                            ));
+                        }
+                        "EnclosingMethod" => {
+                            let class_index = self.class_file_stream.read_u2();
+                            let method_index = self.class_file_stream.read_u2();
+                            attributes.push(AttributeInfo::EnclosingMethod(
+                                EnclosingMethodAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    class_index,
+                                    method_index,
+                                ),
+                            ));
+                        }
+                        "Synthetic" => {
+                            attributes.push(AttributeInfo::Synthetic(SyntheticAttribute::new(
+                                attribute_name_index,
+                                attribute_length,
+                            )));
+                        }
+                        "Signature" => {
+                            let signature_index = self.class_file_stream.read_u2();
+                            attributes.push(AttributeInfo::Signature(SignatureAttribute::new(
+                                attribute_name_index,
+                                attribute_length,
+                                signature_index,
+                            )));
+                        }
+                        "SourceFile" => {
+                            let source_file_index = self.class_file_stream.read_u2();
+                            attributes.push(AttributeInfo::SourceFile(SourceFileAttribute::new(
+                                attribute_name_index,
+                                attribute_length,
+                                source_file_index,
+                            )));
+                        }
+                        "SourceDebugExtension" => {
+                            let debug_extension = self
+                                .class_file_stream
+                                .drain(0..attribute_length as usize)
+                                .collect();
+                            attributes.push(AttributeInfo::SourceDebugExtension(
+                                SourceDebugExtensionAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    debug_extension,
+                                ),
+                            ));
+                        }
+                        "LineNumberTable" => {
+                            let line_number_table_length = self.class_file_stream.read_u2();
+                            let mut line_number_table = Vec::new();
+                            for _ in 0..line_number_table_length {
+                                let start_pc = self.class_file_stream.read_u2();
+                                let line_number = self.class_file_stream.read_u2();
+                                line_number_table
+                                    .push(LineNumberTableEntry::new(start_pc, line_number));
+                            }
+                            attributes.push(AttributeInfo::LineNumberTable(
+                                LineNumberTableAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    line_number_table_length,
+                                    line_number_table,
+                                ),
+                            ));
+                        }
+                        "LocalVariableTable" => {
+                            let local_variable_table_length = self.class_file_stream.read_u2();
+                            let mut local_variable_table = Vec::new();
+                            for _ in 0..local_variable_table_length {
+                                let start_pc = self.class_file_stream.read_u2();
+                                let length = self.class_file_stream.read_u2();
+                                let name_index = self.class_file_stream.read_u2();
+                                let descriptor_index = self.class_file_stream.read_u2();
+                                let index = self.class_file_stream.read_u2();
+                                local_variable_table.push(LocalVariableTableEntry::new(
+                                    start_pc,
+                                    length,
+                                    name_index,
+                                    descriptor_index,
+                                    index,
+                                ));
+                            }
+                            attributes.push(AttributeInfo::LocalVariableTable(
+                                LocalVariableTableAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    local_variable_table_length,
+                                    local_variable_table,
+                                ),
+                            ));
+                        }
+                        "LocalVariableTypeTable" => {
+                            let local_variable_type_table_length = self.class_file_stream.read_u2();
+                            let mut local_variable_type_table = Vec::new();
+                            for _ in 0..local_variable_type_table_length {
+                                let start_pc = self.class_file_stream.read_u2();
+                                let length = self.class_file_stream.read_u2();
+                                let name_index = self.class_file_stream.read_u2();
+                                let signature_index = self.class_file_stream.read_u2();
+                                let index = self.class_file_stream.read_u2();
+                                local_variable_type_table.push(LocalVariableTableEntry::new(
+                                    start_pc,
+                                    length,
+                                    name_index,
+                                    signature_index,
+                                    index,
+                                ));
+                            }
+                            attributes.push(AttributeInfo::LocalVariableTable(
+                                LocalVariableTableAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    local_variable_type_table_length,
+                                    local_variable_type_table,
+                                ),
+                            ));
+                        }
+                        "Deprecated" => {
+                            attributes.push(AttributeInfo::Deprecated(DeprecatedAttribute::new(
+                                attribute_name_index,
+                                attribute_length,
+                            )));
+                        }
+                        "RuntimeVisibleAnnotations" => {
+                            let num_annotations = self.class_file_stream.read_u2();
+                            let mut annotations = Vec::new();
+                            for _ in 0..num_annotations {
+                                let type_index = self.class_file_stream.read_u2();
+                                let num_element_value_pairs = self.class_file_stream.read_u2();
+                                let mut element_value_pairs = Vec::new();
+                                for _ in 0..num_element_value_pairs {
+                                    let element_name_index = self.class_file_stream.read_u2();
+                                    let element_value = self.class_file_stream.read_u2();
+                                    element_value_pairs.push(ElementValuePair::new(
+                                        element_name_index,
+                                        element_value,
+                                    ));
+                                }
+                                annotations.push(Annotation::new(
+                                    type_index,
+                                    num_element_value_pairs,
+                                    element_value_pairs,
+                                ));
+                            }
+                            attributes.push(AttributeInfo::RuntimeVisibleAnnotations(
+                                RuntimeVisibleAnnotationsAttribute::new(
+                                    attribute_name_index,
+                                    attribute_length,
+                                    num_annotations,
+                                    annotations,
+                                ),
+                            ));
+                        }
+                        "RuntimeInvisibleAnnotations" => {
+
+                        }
+                        "RuntimeVisibleParameterAnnotations" => {}
+                        "RuntimeInvisibleParameterAnnotations" => {}
+                        "AnnotationDefault" => {}
+                        "BootstrapMethods" => {}
+                        "MethodParameters" => {}
+                        _ => {
+                            panic!("Invalid attribute name")
+                        }
+                    }
+                }
+                _ => panic!("Invalid attribute name"),
+            }
+        }
+        attributes
+    }
+
+    fn read_constant_value_attribute(
+        &mut self,
+        attribute_name_index: U2,
+        attribute_length: U4,
+    ) -> AttributeInfo {
+        let constant_value_index = self.class_file_stream.read_u2();
+        AttributeInfo::ConstantValue(ConstantValueAttribute::new(
+            attribute_name_index,
+            attribute_length,
+            constant_value_index,
+        ))
+    }
+
+    fn read_code_attribute(
+        &mut self,
+        attribute_name_index: U2,
+        attribute_length: U4,
+        constant_pool: &Vec<CpInfo>,
+    ) -> AttributeInfo {
+        let max_stack = self.class_file_stream.read_u2();
+        let max_locals = self.class_file_stream.read_u2();
+        let code_length = self.class_file_stream.read_u4();
+        let code = self
+            .class_file_stream
+            .drain(0..code_length as usize)
+            .collect();
+        let exception_table_length = self.class_file_stream.read_u2();
+        let exception_table = self.parse_exception_table(exception_table_length);
+        let attributes_count = self.class_file_stream.read_u2();
+        let attributes = self.parse_attributes(attributes_count, constant_pool);
+        AttributeInfo::Code(CodeAttribute::new(
+            attribute_name_index,
+            attribute_length,
+            max_stack,
+            max_locals,
+            code_length,
+            code,
+            exception_table_length,
+            exception_table,
+            attributes_count,
+            attributes,
+        ))
+    }
+
+    fn parse_exception_table(&mut self, exception_table_length: U2) -> Vec<ExceptionTableEntry> {
+        let mut exception_table: Vec<ExceptionTableEntry> = Vec::new();
+        for _ in 0..exception_table_length {
+            let start_pc = self.class_file_stream.read_u2();
+            let end_pc = self.class_file_stream.read_u2();
+            let handler_pc = self.class_file_stream.read_u2();
+            let catch_type = self.class_file_stream.read_u2();
+            exception_table.push(ExceptionTableEntry::new(
+                start_pc, end_pc, handler_pc, catch_type,
+            ));
+        }
+        exception_table
+    }
+
+    fn parse_stack_map_table(
+        &mut self,
+        number_of_entries: U2,
+        attribute_name_index: U2,
+        attribute_length: U4,
+    ) -> Vec<StackMapFrame> {
+        let mut stack_map_table: Vec<StackMapFrame> = Vec::new();
+        for _ in 0..number_of_entries {
+            let frame_type = self.class_file_stream.read_u1();
+            if frame_type >= 0 && frame_type <= 63 {
+                // SAME
+                stack_map_table.push(StackMapFrame::SameFrame(SameFrame::new(frame_type)))
+            } else if frame_type >= 64 && frame_type <= 127 {
+                // SAME_LOCALS_1_STACK_ITEM
+                let tag = self.class_file_stream.read_u1();
+                let verify_type_info = self.parse_verification_type_info(tag);
+                stack_map_table.push(StackMapFrame::SameLocals1StackItemFrame(SameLocals1StackItemFrame::new(
+                    frame_type,
+                    verify_type_info,
+                )))
+            } else if frame_type == 247 {
+                // SAME_LOCALS_1_STACK_ITEM_EXTENDED
+                let offset_delta = self.class_file_stream.read_u2();
+                let tag = self.class_file_stream.read_u1();
+                let verify_type_info = self.parse_verification_type_info(tag);
+                stack_map_table.push(StackMapFrame::SameLocals1StackItemFrameExtended(
+                    SameLocals1StackItemFrameExtended::new(
+                        frame_type,
+                        offset_delta,
+                        verify_type_info,
+                    ),
+                ))
+            } else if frame_type >= 248 && frame_type <= 250 {
+                // CHOP
+                let offset_delta = self.class_file_stream.read_u2();
+                StackMapFrame::ChopFrame(ChopFrame::new(frame_type, offset_delta))
+            } else if frame_type == 251 {
+                // SAME_FRAME_EXTENDED
+                let offset_delta = self.class_file_stream.read_u2();
+                StackMapFrame::SameFrameExtended(SameFrameExtended::new(frame_type, offset_delta))
+            } else if frame_type >= 252 && frame_type <= 254 {
+                // APPEND
+                let offset_delta = self.class_file_stream.read_u2();
+                let mut locals = Vec::new();
+                for _ in 0..frame_type - 251 {
+                    let tag = self.class_file_stream.read_u1();
+                    let verify_type_info = self.parse_verification_type_info(tag);
+                    locals.push(verify_type_info);
+                }
+                StackMapFrame::AppendFrame(AppendFrame::new(frame_type, offset_delta, locals))
+            } else if frame_type == 255 {
+                // FULL_FRAME
+                let offset_delta = self.class_file_stream.read_u2();
+                let number_of_locals = self.class_file_stream.read_u2();
+                let mut locals = Vec::new();
+                for _ in 0..number_of_locals {
+                    let tag = self.class_file_stream.read_u1();
+                    let verify_type_info = self.parse_verification_type_info(tag);
+                    locals.push(verify_type_info);
+                }
+                let number_of_stack_items = self.class_file_stream.read_u2();
+                let mut stack = Vec::new();
+                for _ in 0..number_of_stack_items {
+                    let tag = self.class_file_stream.read_u1();
+                    let verify_type_info = self.parse_verification_type_info(tag);
+                    stack.push(verify_type_info);
+                }
+                StackMapFrame::FullFrame(FullFrame::new(
+                    frame_type,
+                    offset_delta,
+                    number_of_locals,
+                    locals,
+                    number_of_stack_items,
+                    stack,
+                ))
+            }
+        }
+        stack_map_table
+    }
+
+    fn parse_verification_type_info(&mut self, tag: U1) -> VerificationTypeInfo {
+        match tag {
+            0 => VerificationTypeInfo::TopVariable { tag: 0 },
+            1 => VerificationTypeInfo::IntegerVariable { tag: 1 },
+            2 => VerificationTypeInfo::FloatVariable { tag: 2 },
+            3 => VerificationTypeInfo::DoubleVariable { tag: 3 },
+            4 => VerificationTypeInfo::LongVariable { tag: 4 },
+            5 => VerificationTypeInfo::NullVariable { tag: 5 },
+            6 => VerificationTypeInfo::UninitializedThisVariable { tag: 6 },
+            7 => {
+                let cpool_index = self.class_file_stream.read_u2();
+                VerificationTypeInfo::ObjectVariable {
+                    tag: 7,
+                    cpool_index,
+                }
+            }
+            8 => {
+                let offset = self.class_file_stream.read_u2();
+                VerificationTypeInfo::UninitializedVariable { tag: 8, offset }
+            }
+            _ => panic!("Invalid tag"),
+        }
     }
 }
 
