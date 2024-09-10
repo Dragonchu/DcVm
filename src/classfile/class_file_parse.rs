@@ -2,7 +2,8 @@ use crate::classfile::attribute_info::{Annotation, ElementValueItem};
 
 use super::{
     attribute_info::{
-        AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath, VerificationTypeInfo
+        AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath,
+        VerificationTypeInfo,
     },
     class_file::{
         ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo, ConstantFloatInfo,
@@ -263,10 +264,8 @@ impl ClassFileParser {
         let mut attributes: Vec<AttributeInfo> = Vec::new();
         for _ in 0..attributes_count {
             let attribute_name_index = self.class_file_stream.read_u2();
-            println!("{:?}", attribute_name_index);
             let attribute_length = self.class_file_stream.read_u4();
-            let attribute_name = &constant_pool[attribute_name_index as usize];
-            println!("{:?}", attribute_name);
+            let attribute_name = &constant_pool[(attribute_name_index - 1) as usize];
             match attribute_name {
                 CpInfo::Utf8(utf8_info) => {
                     let attribute_name = String::from_utf8(utf8_info.bytes.clone()).unwrap();
