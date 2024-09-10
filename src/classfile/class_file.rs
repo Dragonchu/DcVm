@@ -2,6 +2,8 @@ use std::fmt;
 
 use crate::classfile::types::{U1, U2, U4};
 
+use super::attribute_info::AttributeInfo;
+
 #[derive(Debug)]
 pub enum CpInfo {
     Class(ConstantClassInfo),
@@ -248,7 +250,13 @@ impl ConstantUtf8Info {
 
 impl fmt::Debug for ConstantUtf8Info {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "tag: {}, length: {}, bytes: {:?}", self.tag, self.length, std::str::from_utf8(&self.bytes).unwrap())
+        write!(
+            f,
+            "tag: {}, length: {}, bytes: {:?}",
+            self.tag,
+            self.length,
+            std::str::from_utf8(&self.bytes).unwrap()
+        )
     }
 }
 
@@ -304,22 +312,7 @@ impl ConstantInvokeDynamicInfo {
     }
 }
 
-#[derive(Debug)]
-pub struct AttributeInfo {
-    attribute_name_index: U2,
-    attribute_length: U4,
-    info: Vec<U1>,
-}
 
-impl AttributeInfo {
-    pub fn new(attribute_name_index: U2, attribute_length: U4, info: Vec<U1>) -> Self {
-        Self {
-            attribute_name_index,
-            attribute_length,
-            info,
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct FieldInfo {

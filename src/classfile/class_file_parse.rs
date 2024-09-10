@@ -1,12 +1,13 @@
 use super::{
     class_file::{
-        AttributeInfo, ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo,
+        ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo,
         ConstantFloatInfo, ConstantInfoTag, ConstantIntegerInfo, ConstantInterfaceMethodrefInfo,
         ConstantInvokeDynamicInfo, ConstantLongInfo, ConstantMethodHandleInfo,
         ConstantMethodTypeInfo, ConstantMethodrefInfo, ConstantNameAndTypeInfo, ConstantStringInfo,
         ConstantUtf8Info, CpInfo, FieldInfo, MethodInfo,
     },
     types::{U1, U2, U4, U8},
+    attribute_info::AttributeInfo,
 };
 
 struct ClassFileParser {
