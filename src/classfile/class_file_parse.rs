@@ -1,7 +1,9 @@
 use crate::classfile::attribute_info::{Annotation, ElementValueItem};
 
 use super::{
-    attribute_info::{AttributeInfo, ElementValue, StackMapFrame, VerificationTypeInfo},
+    attribute_info::{
+        AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath, VerificationTypeInfo
+    },
     class_file::{
         ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo, ConstantFloatInfo,
         ConstantInfoTag, ConstantIntegerInfo, ConstantInterfaceMethodrefInfo,
@@ -261,8 +263,10 @@ impl ClassFileParser {
         let mut attributes: Vec<AttributeInfo> = Vec::new();
         for _ in 0..attributes_count {
             let attribute_name_index = self.class_file_stream.read_u2();
+            println!("{:?}", attribute_name_index);
             let attribute_length = self.class_file_stream.read_u4();
             let attribute_name = &constant_pool[attribute_name_index as usize];
+            println!("{:?}", attribute_name);
             match attribute_name {
                 CpInfo::Utf8(utf8_info) => {
                     let attribute_name = String::from_utf8(utf8_info.bytes.clone()).unwrap();
@@ -441,15 +445,7 @@ impl ClassFileParser {
                             let num_annotations = self.class_file_stream.read_u2();
                             let mut annotations = Vec::new();
                             for _ in 0..num_annotations {
-                                let type_index = self.class_file_stream.read_u2();
-                                let num_element_value_pairs = self.class_file_stream.read_u2();
-                                let element_value_pairs =
-                                    self.parse_element_value_pairs(num_element_value_pairs);
-                                annotations.push(Annotation {
-                                    type_index,
-                                    num_element_value_pairs,
-                                    element_value_pairs,
-                                });
+                                annotations.push(self.parse_annotation());
                             }
                             attributes.push(AttributeInfo::RuntimeVisibleAnnotations {
                                 attribute_name_index,
@@ -458,12 +454,114 @@ impl ClassFileParser {
                                 annotations,
                             });
                         }
-                        "RuntimeInvisibleAnnotations" => {}
-                        "RuntimeVisibleParameterAnnotations" => {}
-                        "RuntimeInvisibleParameterAnnotations" => {}
-                        "AnnotationDefault" => {}
-                        "BootstrapMethods" => {}
-                        "MethodParameters" => {}
+                        "RuntimeInvisibleAnnotations" => {
+                            let num_annotations = self.class_file_stream.read_u2();
+                            let mut annotations = Vec::new();
+                            for _ in 0..num_annotations {
+                                annotations.push(self.parse_annotation());
+                            }
+                            attributes.push(AttributeInfo::RuntimeInvisibleAnnotations {
+                                attribute_name_index,
+                                attribute_length,
+                                num_annotations,
+                                annotations,
+                            });
+                        }
+                        "RuntimeVisibleParameterAnnotations" => {
+                            let num_parameters = self.class_file_stream.read_u1();
+                            let mut parameter_annotations = Vec::new();
+                            for _ in 0..num_parameters {
+                                let num_annotations = self.class_file_stream.read_u2();
+                                let mut annotations = Vec::new();
+                                for _ in 0..num_annotations {
+                                    annotations.push(self.parse_annotation());
+                                }
+                                parameter_annotations.push((num_annotations, annotations));
+                            }
+                            attributes.push(AttributeInfo::RuntimeVisibleParameterAnnotations {
+                                attribute_name_index,
+                                attribute_length,
+                                num_parameters,
+                                parameter_annotations,
+                            });
+                        }
+                        "RuntimeInvisibleParameterAnnotations" => {
+                            let num_parameters = self.class_file_stream.read_u1();
+                            let mut parameter_annotations = Vec::new();
+                            for _ in 0..num_parameters {
+                                let num_annotations = self.class_file_stream.read_u2();
+                                let mut annotations = Vec::new();
+                                for _ in 0..num_annotations {
+                                    annotations.push(self.parse_annotation());
+                                }
+                                parameter_annotations.push((num_annotations, annotations));
+                            }
+                            attributes.push(AttributeInfo::RuntimeInvisibleParameterAnnotations {
+                                attribute_name_index,
+                                attribute_length,
+                                num_parameters,
+                                parameter_annotations,
+                            });
+                        }
+                        "RuntimeVisibleTypeAnnotations" => {
+                            let num_annotations = self.class_file_stream.read_u2();
+                            let mut annotations = Vec::new();
+                            for _ in 0..num_annotations {
+                                annotations.push(self.parse_type_annotation());
+                            }
+                            attributes.push(AttributeInfo::RuntimeVisibleTypeAnnotations {
+                                attribute_name_index,
+                                attribute_length,
+                                num_annotations,
+                                annotations,
+                            });
+                        }
+                        "AnnotationDefault" => {
+                            let default_value = self.parse_element_value();
+                            attributes.push(AttributeInfo::AnnotationDefault {
+                                attribute_name_index,
+                                attribute_length,
+                                default_value,
+                            });
+                        }
+                        "BootstrapMethods" => {
+                            let num_bootstrap_methods = self.class_file_stream.read_u2();
+                            let mut bootstrap_methods = Vec::new();
+                            for _ in 0..num_bootstrap_methods {
+                                let bootstrap_method_ref = self.class_file_stream.read_u2();
+                                let num_bootstrap_arguments = self.class_file_stream.read_u2();
+                                let mut bootstrap_arguments = Vec::new();
+                                for _ in 0..num_bootstrap_arguments {
+                                    bootstrap_arguments.push(self.class_file_stream.read_u2());
+                                }
+                                bootstrap_methods.push((
+                                    bootstrap_method_ref,
+                                    num_bootstrap_arguments,
+                                    bootstrap_arguments,
+                                ));
+                            }
+                            attributes.push(AttributeInfo::BootstrapMethods {
+                                attribute_name_index,
+                                attribute_length,
+                                num_bootstrap_methods,
+                                bootstrap_methods,
+                            });
+                        }
+                        "MethodParameters" => {
+                            let parameters_count = self.class_file_stream.read_u1();
+                            let mut parameters = Vec::new();
+                            for _ in 0..parameters_count {
+                                let name_index = self.class_file_stream.read_u2();
+                                let access_flags = self.class_file_stream.read_u2();
+                                parameters.push((name_index, access_flags));
+                            }
+                            attributes.push(AttributeInfo::MethodParameters {
+                                attribute_name_index,
+                                attribute_length,
+                                parameters_count,
+                                parameters,
+                            });
+                        }
                         _ => {
                             panic!("Invalid attribute name")
                         }
@@ -712,6 +810,101 @@ impl ClassFileParser {
             num_element_value_pairs,
             element_value_pairs,
         }
+    }
+
+    fn parse_type_annotation(&mut self) -> TypeAnnotation {
+        let target_type = self.class_file_stream.read_u1();
+        let target_info = self.parse_target_info(target_type);
+        let target_path = self.parse_type_path();
+        let type_index = self.class_file_stream.read_u2();
+        let num_element_value_pairs = self.class_file_stream.read_u2();
+        let element_value_pairs = self.parse_element_value_pairs(num_element_value_pairs);
+        TypeAnnotation {
+            target_type,
+            target_info,
+            target_path,
+            type_index,
+            num_element_value_pairs,
+            element_value_pairs,
+        }
+    }
+
+    fn parse_target_info(&mut self, target_type: U1) -> TargetInfo {
+        match target_type {
+            0x00 | 0x01 => {
+                let type_parameter_index = self.class_file_stream.read_u1();
+                TargetInfo::TypeParameterTarget {
+                    type_parameter_index,
+                }
+            }
+            0x10 => {
+                let supertype_index = self.class_file_stream.read_u2();
+                TargetInfo::SuperTypeTarget { supertype_index }
+            }
+            0x11 | 0x12 => {
+                let type_parameter_index = self.class_file_stream.read_u1();
+                let bound_index = self.class_file_stream.read_u1();
+                TargetInfo::TypeParameterBoundTarget {
+                    type_parameter_index,
+                    bound_index,
+                }
+            }
+            0x13 | 0x14 | 0x15 => TargetInfo::EmptyTarget,
+            0x16 => {
+                let formal_parameter_index = self.class_file_stream.read_u1();
+                TargetInfo::FormalParameterTarget {
+                    formal_parameter_index,
+                }
+            }
+            0x17 => {
+                let throws_type_index = self.class_file_stream.read_u2();
+                TargetInfo::ThrowsTarget { throws_type_index }
+            }
+            0x40 | 0x41 => {
+                let table_length = self.class_file_stream.read_u2();
+                let mut table = Vec::new();
+                for _ in 0..table_length {
+                    let start_pc = self.class_file_stream.read_u2();
+                    let length = self.class_file_stream.read_u2();
+                    let index = self.class_file_stream.read_u2();
+                    table.push((start_pc, length, index));
+                }
+                TargetInfo::LocalVarTarget {
+                    table_length,
+                    table,
+                }
+            }
+            0x42 => {
+                let exception_table_index = self.class_file_stream.read_u2();
+                TargetInfo::CatchTarget {
+                    exception_table_index,
+                }
+            }
+            0x43 | 0x44 | 0x45 | 0x46 => {
+                let offset = self.class_file_stream.read_u2();
+                TargetInfo::OffsetTarget { offset }
+            }
+            0x47 | 0x48 | 0x49 | 0x4A | 0x4B => {
+                let offset = self.class_file_stream.read_u2();
+                let type_argument_index = self.class_file_stream.read_u1();
+                TargetInfo::TypeArgumentTarget {
+                    offset,
+                    type_argument_index,
+                }
+            }
+            _ => panic!("Invalid target type"),
+        }
+    }
+
+    fn parse_type_path(&mut self) -> TypePath {
+        let path_length = self.class_file_stream.read_u1();
+        let mut path = Vec::new();
+        for _ in 0..path_length {
+            let type_path_kind = self.class_file_stream.read_u1();
+            let type_argument_index = self.class_file_stream.read_u1();
+            path.push((type_path_kind, type_argument_index));
+        }
+        TypePath { path_length, path }
     }
 }
 

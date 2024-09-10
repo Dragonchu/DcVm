@@ -240,21 +240,21 @@ pub struct ParameterAnnotation {
 
 #[derive(Debug)]
 pub struct TypeAnnotation {
-    target_type: U1,
-    target_info: TargetInfo,
-    target_path: TypePath,
-    type_index: U2,
-    num_element_value_pairs: U2,
-    element_value_pairs: Vec<(U2, ElementValue)>,
+    pub target_type: U1,
+    pub target_info: TargetInfo,
+    pub target_path: TypePath,
+    pub type_index: U2,
+    pub num_element_value_pairs: U2,
+    pub element_value_pairs: Vec<(U2, ElementValue)>,
 }
 
 #[derive(Debug)]
-enum TargetInfo {
+pub enum TargetInfo {
     TypeParameterTarget {
         type_parameter_index: U1,
     },
     SuperTypeTarget {
-        super_type_index: U2,
+        supertype_index: U2,
     },
     TypeParameterBoundTarget {
         type_parameter_index: U1,
@@ -286,7 +286,7 @@ enum TargetInfo {
 
 #[derive(Debug)]
 pub struct TypePath {
-    path_length: U1,
+    pub path_length: U1,
     //type_path_kind, type_argument_index
-    path: Vec<(U1, U1)>,
+    pub path: Vec<(U1, U1)>,
 }
