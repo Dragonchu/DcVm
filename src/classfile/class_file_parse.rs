@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Read},
+    io::{BufReader, Read},
 };
 
 use zip::read::ZipFile;
@@ -122,9 +122,9 @@ impl ClassReader for ZipFile<'_> {
 
 impl<'a> ClassFileParser<'a> {
     pub fn file(class_file_stream: BufReader<File>) -> Self {
-        Self { 
-            class_file_stream: ClassFileStream::File(class_file_stream)
-         }
+        Self {
+            class_file_stream: ClassFileStream::File(class_file_stream),
+        }
     }
 
     pub fn zip(zip_file: ZipFile<'a>) -> Self {
@@ -172,12 +172,18 @@ impl<'a> ClassFileParser<'a> {
 
     fn parse_constant_pool(&mut self, constant_pool_count: U2) -> Vec<CpInfo> {
         let mut constant_pool: Vec<CpInfo> = Vec::new();
-        for _ in 0..constant_pool_count - 1 {
-            let tag = self
-                .class_file_stream
-                .read_u1()
-                .try_into()
-                .expect("Invalid tag");
+        let mut i = 0;
+        while i < constant_pool_count - 1 {
+            let tag = match self.class_file_stream.read_u1().try_into() {
+                Ok(tag) => tag,
+                Err(_) => {
+                    println!("parsed constant_pool count: \n{:?}", constant_pool.len());
+                    for (i, cp) in constant_pool.iter().enumerate() {
+                        println!("{}: {:?}", i+1, cp);
+                    }
+                    panic!("Invalid tag")
+                },
+            };
             match tag {
                 ConstantInfoTag::ConstantUtf8 => {
                     let length = self.class_file_stream.read_u2();
@@ -210,6 +216,8 @@ impl<'a> ClassFileParser<'a> {
                         high_bytes,
                         low_bytes,
                     });
+                    constant_pool.push(CpInfo::Padding);
+                    i += 1;
                 }
                 ConstantInfoTag::ConstantDouble => {
                     let high_bytes = self.class_file_stream.read_u4();
@@ -219,6 +227,8 @@ impl<'a> ClassFileParser<'a> {
                         high_bytes,
                         low_bytes,
                     });
+                    constant_pool.push(CpInfo::Padding);
+                    i += 1;
                 }
                 ConstantInfoTag::ConstantClass => {
                     let name_index = self.class_file_stream.read_u2();
@@ -296,6 +306,7 @@ impl<'a> ClassFileParser<'a> {
                     });
                 }
             }
+            i += 1;
         }
         constant_pool
     }

@@ -71,6 +71,7 @@ pub enum CpInfo {
         length: U2,
         bytes: Vec<U1>,
     },
+    Padding,
 }
 
 impl fmt::Debug for CpInfo {
@@ -90,6 +91,7 @@ impl fmt::Debug for CpInfo {
             CpInfo::NameAndType { tag, name_index, descriptor_index } => write!(f, "\n  NameAndType{{tag: {}, name_index: {}, descriptor_index: {}}}", tag, name_index, descriptor_index),
             CpInfo::String { tag, string_index } => write!(f, "\n  String{{tag: {}, string_index: {}}}", tag, string_index),
             CpInfo::Utf8 { tag, length, bytes } => write!(f, "\n  Utf8{{tag: {}, length: {}, bytes: {:?}}}", tag, length, str::from_utf8(bytes).unwrap()),
+            CpInfo::Padding => write!(f, "\n  Padding"),
         }
     }
 }
@@ -130,11 +132,13 @@ impl TryFrom<u8> for ConstantInfoTag {
             15 => Ok(ConstantInfoTag::ConstantMethodHandle),
             16 => Ok(ConstantInfoTag::ConstantMethodType),
             18 => Ok(ConstantInfoTag::ConstantInvokeDynamic),
-            _ => Err(()),
+            _ => {
+                println!("Unknown tag: {}", value);
+                Err(())
+            }
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct FieldInfo {
