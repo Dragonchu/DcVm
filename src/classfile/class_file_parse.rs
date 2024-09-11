@@ -1,3 +1,10 @@
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Read},
+};
+
+use zip::read::ZipFile;
+
 use crate::classfile::attribute_info::{Annotation, ElementValueItem};
 
 use super::{
@@ -6,67 +13,124 @@ use super::{
         VerificationTypeInfo,
     },
     class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
-    types::{U1, U2, U4, U8},
+    types::{U1, U2, U4},
 };
 
-struct ClassFileParser {
-    pub class_file_stream: Vec<u8>,
+enum ClassFileStream<'a> {
+    File(BufReader<File>),
+    Zip(ZipFile<'a>),
+}
+
+impl<'a> ClassReader for ClassFileStream<'a> {
+    fn read_u1(&mut self) -> U1 {
+        match self {
+            ClassFileStream::File(file) => file.read_u1(),
+            ClassFileStream::Zip(zip) => zip.read_u1(),
+        }
+    }
+
+    fn read_u2(&mut self) -> U2 {
+        match self {
+            ClassFileStream::File(file) => file.read_u2(),
+            ClassFileStream::Zip(zip) => zip.read_u2(),
+        }
+    }
+
+    fn read_u4(&mut self) -> U4 {
+        match self {
+            ClassFileStream::File(file) => file.read_u4(),
+            ClassFileStream::Zip(zip) => zip.read_u4(),
+        }
+    }
+
+    fn read_n(&mut self, size: usize) -> Vec<u8> {
+        match self {
+            ClassFileStream::File(file) => file.read_n(size),
+            ClassFileStream::Zip(zip) => zip.read_n(size),
+        }
+    }
+}
+
+pub struct ClassFileParser<'a> {
+    pub class_file_stream: ClassFileStream<'a>,
 }
 
 trait ClassReader {
     fn read_u1(&mut self) -> u8;
     fn read_u2(&mut self) -> u16;
     fn read_u4(&mut self) -> u32;
-    fn read_u8(&mut self) -> u64;
+    fn read_n(&mut self, size: usize) -> Vec<u8>;
 }
 
-impl ClassReader for Vec<u8> {
+impl ClassReader for BufReader<File> {
     fn read_u1(&mut self) -> U1 {
-        self.remove(0)
+        let mut buffer = [0; 1];
+        self.read_exact(&mut buffer).expect("Failed to read u1");
+        buffer[0]
     }
 
     fn read_u2(&mut self) -> U2 {
-        let byte1 = self.remove(0) as u16;
-        let byte2 = self.remove(0) as u16;
-        (byte1 << 8) | byte2
+        let mut buffer = [0; 2];
+        self.read_exact(&mut buffer).expect("Failed to read u2");
+        ((buffer[0] as u16) << 8) | buffer[1] as u16
     }
 
     fn read_u4(&mut self) -> U4 {
-        let byte1 = self.remove(0) as u32;
-        let byte2 = self.remove(0) as u32;
-        let byte3 = self.remove(0) as u32;
-        let byte4 = self.remove(0) as u32;
-        (byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4
+        let mut buffer = [0; 4];
+        self.read_exact(&mut buffer).expect("Failed to read u4");
+        ((buffer[0] as u32) << 24)
+            | ((buffer[1] as u32) << 16)
+            | ((buffer[2] as u32) << 8)
+            | buffer[3] as u32
     }
 
-    fn read_u8(&mut self) -> U8 {
-        let byte1 = self.remove(0) as u64;
-        let byte2 = self.remove(0) as u64;
-        let byte3 = self.remove(0) as u64;
-        let byte4 = self.remove(0) as u64;
-        let byte5 = self.remove(0) as u64;
-        let byte6 = self.remove(0) as u64;
-        let byte7 = self.remove(0) as u64;
-        let byte8 = self.remove(0) as u64;
-        (byte1 << 56)
-            | (byte2 << 48)
-            | (byte3 << 40)
-            | (byte4 << 32)
-            | (byte5 << 24)
-            | (byte6 << 16)
-            | (byte7 << 8)
-            | byte8
+    fn read_n(&mut self, size: usize) -> Vec<u8> {
+        let mut buffer = vec![0; size];
+        self.read_exact(&mut buffer).expect("Failed to read");
+        buffer
     }
 }
 
-impl ClassFileParser {
-    pub fn read(class_file_path: String) -> Self {
-        let class_file_stream = std::fs::read(class_file_path).expect("Failed to read class file");
-        Self { class_file_stream }
+impl ClassReader for ZipFile<'_> {
+    fn read_u1(&mut self) -> U1 {
+        let mut buffer = [0; 1];
+        self.read_exact(&mut buffer).expect("Failed to read u1");
+        buffer[0]
     }
 
-    pub fn new(class_file_stream: Vec<u8>) -> Self {
-        Self { class_file_stream }
+    fn read_u2(&mut self) -> U2 {
+        let mut buffer = [0; 2];
+        self.read_exact(&mut buffer).expect("Failed to read u2");
+        ((buffer[0] as u16) << 8) | buffer[1] as u16
+    }
+
+    fn read_u4(&mut self) -> U4 {
+        let mut buffer = [0; 4];
+        self.read_exact(&mut buffer).expect("Failed to read u4");
+        ((buffer[0] as u32) << 24)
+            | ((buffer[1] as u32) << 16)
+            | ((buffer[2] as u32) << 8)
+            | buffer[3] as u32
+    }
+
+    fn read_n(&mut self, size: usize) -> Vec<u8> {
+        let mut buffer = vec![0; size];
+        self.read_exact(&mut buffer).expect("Failed to read");
+        buffer
+    }
+}
+
+impl<'a> ClassFileParser<'a> {
+    pub fn file(class_file_stream: BufReader<File>) -> Self {
+        Self { 
+            class_file_stream: ClassFileStream::File(class_file_stream)
+         }
+    }
+
+    pub fn zip(zip_file: ZipFile<'a>) -> Self {
+        Self {
+            class_file_stream: ClassFileStream::Zip(zip_file),
+        }
     }
 
     pub fn parse(&mut self) -> ClassFile {
@@ -117,7 +181,7 @@ impl ClassFileParser {
             match tag {
                 ConstantInfoTag::ConstantUtf8 => {
                     let length = self.class_file_stream.read_u2();
-                    let bytes = self.class_file_stream.drain(0..length as usize).collect();
+                    let bytes = self.class_file_stream.read_n(length as usize);
                     constant_pool.push(CpInfo::Utf8 {
                         tag: tag as u8,
                         length,
@@ -291,7 +355,11 @@ impl ClassFileParser {
             let attribute_length = self.class_file_stream.read_u4();
             let attribute_name = &constant_pool[(attribute_name_index - 1) as usize];
             match attribute_name {
-                CpInfo::Utf8{tag: _, length: _, bytes} => {
+                CpInfo::Utf8 {
+                    tag: _,
+                    length: _,
+                    bytes,
+                } => {
                     let attribute_name = String::from_utf8(bytes.clone()).unwrap();
                     match attribute_name.as_str() {
                         "ConstantValue" => {
@@ -385,10 +453,8 @@ impl ClassFileParser {
                             });
                         }
                         "SourceDebugExtension" => {
-                            let debug_extension = self
-                                .class_file_stream
-                                .drain(0..attribute_length as usize)
-                                .collect();
+                            let debug_extension =
+                                self.class_file_stream.read_n(attribute_length as usize);
                             attributes.push(AttributeInfo::SourceDebugExtension {
                                 attribute_name_index,
                                 attribute_length,
@@ -618,10 +684,7 @@ impl ClassFileParser {
         let max_stack = self.class_file_stream.read_u2();
         let max_locals = self.class_file_stream.read_u2();
         let code_length = self.class_file_stream.read_u4();
-        let code = self
-            .class_file_stream
-            .drain(0..code_length as usize)
-            .collect();
+        let code = self.class_file_stream.read_n(code_length as usize);
         let exception_table_length = self.class_file_stream.read_u2();
         let exception_table = self.parse_exception_table(exception_table_length);
         let attributes_count = self.class_file_stream.read_u2();
@@ -939,7 +1002,8 @@ mod tests {
     fn parse_main_class() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test/Main.class");
-        let mut parser = ClassFileParser::read(d.display().to_string());
+        let reader = File::open(d.display().to_string()).expect("Failed to open class file");
+        let mut parser = ClassFileParser::file(BufReader::new(reader));
         let cf = parser.parse();
         print!("{}", cf);
     }
