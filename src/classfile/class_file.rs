@@ -4,22 +4,93 @@ use crate::classfile::types::{U1, U2, U4};
 
 use super::attribute_info::AttributeInfo;
 
-#[derive(Debug)]
 pub enum CpInfo {
-    Class(ConstantClassInfo),
-    Double(ConstantDoubleInfo),
-    FieldRef(ConstantFieldrefInfo),
-    Float(ConstantFloatInfo),
-    Integer(ConstantIntegerInfo),
-    InterfaceMethodRef(ConstantInterfaceMethodrefInfo),
-    InvokeDynamic(ConstantInvokeDynamicInfo),
-    Long(ConstantLongInfo),
-    MethodHandle(ConstantMethodHandleInfo),
-    MethodType(ConstantMethodTypeInfo),
-    MethodRef(ConstantMethodrefInfo),
-    NameAndType(ConstantNameAndTypeInfo),
-    String(ConstantStringInfo),
-    Utf8(ConstantUtf8Info),
+    Class {
+        tag: U1,
+        name_index: U2,
+    },
+    Double {
+        tag: U1,
+        high_bytes: U4,
+        low_bytes: U4,
+    },
+    FieldRef {
+        tag: U1,
+        class_index: U2,
+        name_and_type_index: U2,
+    },
+    Float {
+        tag: U1,
+        bytes: U4,
+    },
+    Integer {
+        tag: U1,
+        bytes: U4,
+    },
+    InterfaceMethodRef {
+        tag: U1,
+        class_index: U2,
+        name_and_type_index: U2,
+    },
+    InvokeDynamic {
+        tag: U1,
+        bootstrap_method_attr_index: U2,
+        name_and_type_index: U2,
+    },
+    Long {
+        tag: U1,
+        high_bytes: U4,
+        low_bytes: U4,
+    },
+    MethodHandle {
+        tag: U1,
+        reference_kind: U1,
+        reference_index: U2,
+    },
+    MethodType {
+        tag: U1,
+        descriptor_index: U2,
+    },
+    MethodRef {
+        tag: U1,
+        class_index: U2,
+        name_and_type_index: U2,
+    },
+    NameAndType {
+        tag: U1,
+        name_index: U2,
+        descriptor_index: U2,
+    },
+    String {
+        tag: U1,
+        string_index: U2,
+    },
+    Utf8 {
+        tag: U1,
+        length: U2,
+        bytes: Vec<U1>,
+    },
+}
+
+impl fmt::Debug for CpInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CpInfo::Class { tag, name_index } => write!(f, "Class: tag: {}, name_index: {}", tag, name_index),
+            CpInfo::Double { tag, high_bytes, low_bytes } => write!(f, "Double: tag: {}, high_bytes: {}, low_bytes: {}", tag, high_bytes, low_bytes),
+            CpInfo::FieldRef { tag, class_index, name_and_type_index } => write!(f, "FieldRef: tag: {}, class_index: {}, name_and_type_index: {}", tag, class_index, name_and_type_index),
+            CpInfo::Float { tag, bytes } => write!(f, "Float: tag: {}, bytes: {}", tag, bytes),
+            CpInfo::Integer { tag, bytes } => write!(f, "Integer: tag: {}, bytes: {}", tag, bytes),
+            CpInfo::InterfaceMethodRef { tag, class_index, name_and_type_index } => write!(f, "InterfaceMethodRef: tag: {}, class_index: {}, name_and_type_index: {}", tag, class_index, name_and_type_index),
+            CpInfo::InvokeDynamic { tag, bootstrap_method_attr_index, name_and_type_index } => write!(f, "InvokeDynamic: tag: {}, bootstrap_method_attr_index: {}, name_and_type_index: {}", tag, bootstrap_method_attr_index, name_and_type_index),
+            CpInfo::Long { tag, high_bytes, low_bytes } => write!(f, "Long: tag: {}, high_bytes: {}, low_bytes: {}", tag, high_bytes, low_bytes),
+            CpInfo::MethodHandle { tag, reference_kind, reference_index } => write!(f, "MethodHandle: tag: {}, reference_kind: {}, reference_index: {}", tag, reference_kind, reference_index),
+            CpInfo::MethodType { tag, descriptor_index } => write!(f, "MethodType: tag: {}, descriptor_index: {}", tag, descriptor_index),
+            CpInfo::MethodRef { tag, class_index, name_and_type_index } => write!(f, "MethodRef: tag: {}, class_index: {}, name_and_type_index: {}", tag, class_index, name_and_type_index),
+            CpInfo::NameAndType { tag, name_index, descriptor_index } => write!(f, "NameAndType: tag: {}, name_index: {}, descriptor_index: {}", tag, name_index, descriptor_index),
+            CpInfo::String { tag, string_index } => write!(f, "String: tag: {}, string_index: {}", tag, string_index),
+            CpInfo::Utf8 { tag, length, bytes } => write!(f, "Utf8: tag: {}, length: {}, bytes: {:?}", tag, length, bytes),
+        }
+    }
 }
 
 pub enum ConstantInfoTag {
@@ -62,256 +133,6 @@ impl TryFrom<u8> for ConstantInfoTag {
         }
     }
 }
-
-//The CONSTANT_Class_info Structure
-#[derive(Debug)]
-pub struct ConstantClassInfo {
-    tag: U1,
-    name_index: U2,
-}
-
-impl ConstantClassInfo {
-    pub fn new(name_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantClass as U1,
-            name_index,
-        }
-    }
-}
-
-#[derive(Debug)]
-//The CONSTANT_Fieldref_info, CONSTANT_Methodref_info, and CONSTANT_InterfaceMethodref_info Structures
-pub struct ConstantFieldrefInfo {
-    tag: U1,
-    class_index: U2,
-    name_and_type_index: U2,
-}
-
-impl ConstantFieldrefInfo {
-    pub fn new(class_index: U2, name_and_type_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantFieldref as U1,
-            class_index,
-            name_and_type_index,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ConstantMethodrefInfo {
-    tag: U1,
-    class_index: U2,
-    name_and_type_index: U2,
-}
-
-impl ConstantMethodrefInfo {
-    pub fn new(class_index: U2, name_and_type_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantMethodref as U1,
-            class_index,
-            name_and_type_index,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ConstantInterfaceMethodrefInfo {
-    tag: U1,
-    class_index: U2,
-    name_and_type_index: U2,
-}
-
-impl ConstantInterfaceMethodrefInfo {
-    pub fn new(class_index: U2, name_and_type_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantInterfaceMethodref as U1,
-            class_index,
-            name_and_type_index,
-        }
-    }
-}
-
-#[derive(Debug)]
-//The CONSTANT_String_info Structure
-pub struct ConstantStringInfo {
-    tag: U1,
-    string_index: U2,
-}
-
-impl ConstantStringInfo {
-    pub fn new(string_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantString as U1,
-            string_index,
-        }
-    }
-}
-
-//The CONSTANT_Integer_info and CONSTANT_Float_info Structures
-#[derive(Debug)]
-pub struct ConstantIntegerInfo {
-    tag: U1,
-    bytes: U4,
-}
-
-impl ConstantIntegerInfo {
-    pub fn new(bytes: U4) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantInteger as U1,
-            bytes,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ConstantFloatInfo {
-    tag: U1,
-    bytes: U4,
-}
-
-impl ConstantFloatInfo {
-    pub fn new(bytes: U4) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantFloat as U1,
-            bytes,
-        }
-    }
-}
-
-//The CONSTANT_Long_info and CONSTANT_Double_info Structures
-#[derive(Debug)]
-pub struct ConstantLongInfo {
-    tag: U1,
-    high_bytes: U4,
-    low_bytes: U4,
-}
-
-impl ConstantLongInfo {
-    pub fn new(high_bytes: U4, low_bytes: U4) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantLong as U1,
-            high_bytes,
-            low_bytes,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ConstantDoubleInfo {
-    tag: U1,
-    high_bytes: U4,
-    low_bytes: U4,
-}
-
-impl ConstantDoubleInfo {
-    pub fn new(high_bytes: U4, low_bytes: U4) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantDouble as U1,
-            high_bytes,
-            low_bytes,
-        }
-    }
-}
-
-//The CONSTANT_NameAndType_info Structure
-#[derive(Debug)]
-pub struct ConstantNameAndTypeInfo {
-    tag: U1,
-    name_index: U2,
-    descriptor_index: U2,
-}
-
-impl ConstantNameAndTypeInfo {
-    pub fn new(name_index: U2, descriptor_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantNameAndType as U1,
-            name_index,
-            descriptor_index,
-        }
-    }
-}
-
-//The CONSTANT_Utf8_info Structure
-pub struct ConstantUtf8Info {
-    tag: U1,
-    length: U2,
-    pub bytes: Vec<U1>,
-}
-
-impl ConstantUtf8Info {
-    pub fn new(length: U2, bytes: Vec<U1>) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantUtf8 as U1,
-            length,
-            bytes,
-        }
-    }
-}
-
-impl fmt::Debug for ConstantUtf8Info {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "tag: {}, length: {}, bytes: {:?}",
-            self.tag,
-            self.length,
-            std::str::from_utf8(&self.bytes).unwrap()
-        )
-    }
-}
-
-//The CONSTANT_MethodHandle_info Structure
-#[derive(Debug)]
-pub struct ConstantMethodHandleInfo {
-    tag: U1,
-    reference_kind: U1,
-    reference_index: U2,
-}
-
-impl ConstantMethodHandleInfo {
-    pub fn new(reference_kind: U1, reference_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantMethodHandle as U1,
-            reference_kind,
-            reference_index,
-        }
-    }
-}
-
-//The CONSTANT_MethodType_info Structure
-#[derive(Debug)]
-pub struct ConstantMethodTypeInfo {
-    tag: U1,
-    descriptor_index: U2,
-}
-
-impl ConstantMethodTypeInfo {
-    pub fn new(descriptor_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantMethodType as U1,
-            descriptor_index,
-        }
-    }
-}
-
-//The CONSTANT_InvokeDynamic_info Structure
-#[derive(Debug)]
-pub struct ConstantInvokeDynamicInfo {
-    tag: U1,
-    bootstrap_method_attr_index: U2,
-    name_and_type_index: U2,
-}
-
-impl ConstantInvokeDynamicInfo {
-    pub fn new(bootstrap_method_attr_index: U2, name_and_type_index: U2) -> Self {
-        Self {
-            tag: ConstantInfoTag::ConstantInvokeDynamic as U1,
-            bootstrap_method_attr_index,
-            name_and_type_index,
-        }
-    }
-}
-
 
 
 #[derive(Debug)]
