@@ -5,13 +5,7 @@ use super::{
         AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath,
         VerificationTypeInfo,
     },
-    class_file::{
-        ClassFile, ConstantClassInfo, ConstantDoubleInfo, ConstantFieldrefInfo, ConstantFloatInfo,
-        ConstantInfoTag, ConstantIntegerInfo, ConstantInterfaceMethodrefInfo,
-        ConstantInvokeDynamicInfo, ConstantLongInfo, ConstantMethodHandleInfo,
-        ConstantMethodTypeInfo, ConstantMethodrefInfo, ConstantNameAndTypeInfo, ConstantStringInfo,
-        ConstantUtf8Info, CpInfo, FieldInfo, MethodInfo,
-    },
+    class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
     types::{U1, U2, U4, U8},
 };
 
@@ -124,88 +118,118 @@ impl ClassFileParser {
                 ConstantInfoTag::ConstantUtf8 => {
                     let length = self.class_file_stream.read_u2();
                     let bytes = self.class_file_stream.drain(0..length as usize).collect();
-                    constant_pool.push(CpInfo::Utf8(ConstantUtf8Info::new(length, bytes)));
+                    constant_pool.push(CpInfo::Utf8 {
+                        tag: tag as u8,
+                        length,
+                        bytes,
+                    });
                 }
                 ConstantInfoTag::ConstantInteger => {
-                    let value = self.class_file_stream.read_u4();
-                    constant_pool.push(CpInfo::Integer(ConstantIntegerInfo::new(value)));
+                    let bytes = self.class_file_stream.read_u4();
+                    constant_pool.push(CpInfo::Integer {
+                        tag: tag as u8,
+                        bytes,
+                    });
                 }
                 ConstantInfoTag::ConstantFloat => {
-                    let value = self.class_file_stream.read_u4();
-                    constant_pool.push(CpInfo::Float(ConstantFloatInfo::new(value)));
+                    let bytes = self.class_file_stream.read_u4();
+                    constant_pool.push(CpInfo::Float {
+                        tag: tag as u8,
+                        bytes,
+                    });
                 }
                 ConstantInfoTag::ConstantLong => {
                     let high_bytes = self.class_file_stream.read_u4();
                     let low_bytes = self.class_file_stream.read_u4();
-                    constant_pool.push(CpInfo::Long(ConstantLongInfo::new(high_bytes, low_bytes)));
+                    constant_pool.push(CpInfo::Long {
+                        tag: tag as u8,
+                        high_bytes,
+                        low_bytes,
+                    });
                 }
                 ConstantInfoTag::ConstantDouble => {
                     let high_bytes = self.class_file_stream.read_u4();
                     let low_bytes = self.class_file_stream.read_u4();
-                    constant_pool.push(CpInfo::Double(ConstantDoubleInfo::new(
-                        high_bytes, low_bytes,
-                    )));
+                    constant_pool.push(CpInfo::Double {
+                        tag: tag as u8,
+                        high_bytes,
+                        low_bytes,
+                    });
                 }
                 ConstantInfoTag::ConstantClass => {
                     let name_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::Class(ConstantClassInfo::new(name_index)));
+                    constant_pool.push(CpInfo::Class {
+                        tag: tag as u8,
+                        name_index,
+                    });
                 }
                 ConstantInfoTag::ConstantString => {
                     let string_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::String(ConstantStringInfo::new(string_index)));
+                    constant_pool.push(CpInfo::String {
+                        tag: tag as u8,
+                        string_index,
+                    });
                 }
                 ConstantInfoTag::ConstantFieldref => {
                     let class_index = self.class_file_stream.read_u2();
                     let name_and_type_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::FieldRef(ConstantFieldrefInfo::new(
+                    constant_pool.push(CpInfo::FieldRef {
+                        tag: tag as u8,
                         class_index,
                         name_and_type_index,
-                    )));
+                    });
                 }
                 ConstantInfoTag::ConstantMethodref => {
                     let class_index = self.class_file_stream.read_u2();
                     let name_and_type_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::MethodRef(ConstantMethodrefInfo::new(
+                    constant_pool.push(CpInfo::MethodRef {
+                        tag: tag as u8,
                         class_index,
                         name_and_type_index,
-                    )));
+                    });
                 }
                 ConstantInfoTag::ConstantInterfaceMethodref => {
                     let class_index = self.class_file_stream.read_u2();
                     let name_and_type_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::InterfaceMethodRef(
-                        ConstantInterfaceMethodrefInfo::new(class_index, name_and_type_index),
-                    ));
+                    constant_pool.push(CpInfo::InterfaceMethodRef {
+                        tag: tag as u8,
+                        class_index,
+                        name_and_type_index,
+                    });
                 }
                 ConstantInfoTag::ConstantNameAndType => {
                     let name_index = self.class_file_stream.read_u2();
                     let descriptor_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::NameAndType(ConstantNameAndTypeInfo::new(
+                    constant_pool.push(CpInfo::NameAndType {
+                        tag: tag as u8,
                         name_index,
                         descriptor_index,
-                    )));
+                    });
                 }
                 ConstantInfoTag::ConstantMethodHandle => {
                     let reference_kind = self.class_file_stream.read_u1();
                     let reference_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::MethodHandle(ConstantMethodHandleInfo::new(
+                    constant_pool.push(CpInfo::MethodHandle {
+                        tag: tag as u8,
                         reference_kind,
                         reference_index,
-                    )));
+                    });
                 }
                 ConstantInfoTag::ConstantMethodType => {
                     let descriptor_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::MethodType(ConstantMethodTypeInfo::new(
+                    constant_pool.push(CpInfo::MethodType {
+                        tag: tag as u8,
                         descriptor_index,
-                    )));
+                    });
                 }
                 ConstantInfoTag::ConstantInvokeDynamic => {
                     let bootstrap_method_attr_index = self.class_file_stream.read_u2();
                     let name_and_type_index = self.class_file_stream.read_u2();
-                    constant_pool.push(CpInfo::InvokeDynamic(ConstantInvokeDynamicInfo::new(
+                    constant_pool.push(CpInfo::InvokeDynamic {
+                        tag: tag as u8,
                         bootstrap_method_attr_index,
                         name_and_type_index,
-                    )));
+                    });
                 }
             }
         }
@@ -267,8 +291,8 @@ impl ClassFileParser {
             let attribute_length = self.class_file_stream.read_u4();
             let attribute_name = &constant_pool[(attribute_name_index - 1) as usize];
             match attribute_name {
-                CpInfo::Utf8(utf8_info) => {
-                    let attribute_name = String::from_utf8(utf8_info.bytes.clone()).unwrap();
+                CpInfo::Utf8{tag: _, length: _, bytes} => {
+                    let attribute_name = String::from_utf8(bytes.clone()).unwrap();
                     match attribute_name.as_str() {
                         "ConstantValue" => {
                             attributes.push(self.read_constant_value_attribute(
