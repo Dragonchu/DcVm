@@ -1,3 +1,4 @@
+use core::str;
 use std::fmt;
 
 use crate::classfile::types::{U1, U2, U4};
@@ -75,20 +76,20 @@ pub enum CpInfo {
 impl fmt::Debug for CpInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CpInfo::Class { tag, name_index } => write!(f, "Class: tag: {}, name_index: {}", tag, name_index),
-            CpInfo::Double { tag, high_bytes, low_bytes } => write!(f, "Double: tag: {}, high_bytes: {}, low_bytes: {}", tag, high_bytes, low_bytes),
-            CpInfo::FieldRef { tag, class_index, name_and_type_index } => write!(f, "FieldRef: tag: {}, class_index: {}, name_and_type_index: {}", tag, class_index, name_and_type_index),
-            CpInfo::Float { tag, bytes } => write!(f, "Float: tag: {}, bytes: {}", tag, bytes),
-            CpInfo::Integer { tag, bytes } => write!(f, "Integer: tag: {}, bytes: {}", tag, bytes),
-            CpInfo::InterfaceMethodRef { tag, class_index, name_and_type_index } => write!(f, "InterfaceMethodRef: tag: {}, class_index: {}, name_and_type_index: {}", tag, class_index, name_and_type_index),
-            CpInfo::InvokeDynamic { tag, bootstrap_method_attr_index, name_and_type_index } => write!(f, "InvokeDynamic: tag: {}, bootstrap_method_attr_index: {}, name_and_type_index: {}", tag, bootstrap_method_attr_index, name_and_type_index),
-            CpInfo::Long { tag, high_bytes, low_bytes } => write!(f, "Long: tag: {}, high_bytes: {}, low_bytes: {}", tag, high_bytes, low_bytes),
-            CpInfo::MethodHandle { tag, reference_kind, reference_index } => write!(f, "MethodHandle: tag: {}, reference_kind: {}, reference_index: {}", tag, reference_kind, reference_index),
-            CpInfo::MethodType { tag, descriptor_index } => write!(f, "MethodType: tag: {}, descriptor_index: {}", tag, descriptor_index),
-            CpInfo::MethodRef { tag, class_index, name_and_type_index } => write!(f, "MethodRef: tag: {}, class_index: {}, name_and_type_index: {}", tag, class_index, name_and_type_index),
-            CpInfo::NameAndType { tag, name_index, descriptor_index } => write!(f, "NameAndType: tag: {}, name_index: {}, descriptor_index: {}", tag, name_index, descriptor_index),
-            CpInfo::String { tag, string_index } => write!(f, "String: tag: {}, string_index: {}", tag, string_index),
-            CpInfo::Utf8 { tag, length, bytes } => write!(f, "Utf8: tag: {}, length: {}, bytes: {:?}", tag, length, bytes),
+            CpInfo::Class { tag, name_index } => write!(f, "\n  Class{{tag {}, name_index: {}}}", tag, name_index),
+            CpInfo::Double { tag, high_bytes, low_bytes } => write!(f, "\n  Double{{tag: {}, high_bytes: {}, low_bytes: {}}}", tag, high_bytes, low_bytes),
+            CpInfo::FieldRef { tag, class_index, name_and_type_index } => write!(f, "\n  FieldRef{{ tag: {}, class_index: {}, name_and_type_index: {}}}", tag, class_index, name_and_type_index),
+            CpInfo::Float { tag, bytes } => write!(f, "\n  Float{{tag: {}, bytes: {}}}", tag, bytes),
+            CpInfo::Integer { tag, bytes } => write!(f, "\n  Integer{{tag: {}, bytes: {}}}", tag, bytes),
+            CpInfo::InterfaceMethodRef { tag, class_index, name_and_type_index } => write!(f, "\n  InterfaceMethodRef{{tag: {}, class_index: {}, name_and_type_index: {}}}", tag, class_index, name_and_type_index),
+            CpInfo::InvokeDynamic { tag, bootstrap_method_attr_index, name_and_type_index } => write!(f, "\n  InvokeDynamic{{tag: {}, bootstrap_method_attr_index: {}, name_and_type_index: {}}}", tag, bootstrap_method_attr_index, name_and_type_index),
+            CpInfo::Long { tag, high_bytes, low_bytes } => write!(f, "\n  Long{{tag: {}, high_bytes: {}, low_bytes: {}}}", tag, high_bytes, low_bytes),
+            CpInfo::MethodHandle { tag, reference_kind, reference_index } => write!(f, "\n  MethodHandle{{tag: {}, reference_kind: {}, reference_index: {}}}", tag, reference_kind, reference_index),
+            CpInfo::MethodType { tag, descriptor_index } => write!(f, "\n  MethodType{{tag: {}, descriptor_index: {}}}", tag, descriptor_index),
+            CpInfo::MethodRef { tag, class_index, name_and_type_index } => write!(f, "\n  MethodRef{{tag: {}, class_index: {}, name_and_type_index: {}}}", tag, class_index, name_and_type_index),
+            CpInfo::NameAndType { tag, name_index, descriptor_index } => write!(f, "\n  NameAndType{{tag: {}, name_index: {}, descriptor_index: {}}}", tag, name_index, descriptor_index),
+            CpInfo::String { tag, string_index } => write!(f, "\n  String{{tag: {}, string_index: {}}}", tag, string_index),
+            CpInfo::Utf8 { tag, length, bytes } => write!(f, "\n  Utf8{{tag: {}, length: {}, bytes: {:?}}}", tag, length, str::from_utf8(bytes).unwrap()),
         }
     }
 }
@@ -161,7 +162,6 @@ impl FieldInfo {
     }
 }
 
-#[derive(Debug)]
 pub struct MethodInfo {
     access_flags: U2,
     name_index: U2,
@@ -184,6 +184,13 @@ impl MethodInfo {
             attributes_count: attributes.len() as U2,
             attributes,
         }
+    }
+}
+
+impl fmt::Debug for MethodInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\n  MethodInfo{{\n\taccess_flags: {},\n\tname_index: {},\n\tdescriptor_index: {},\n\tattributes_count: {},\n\tattributes: {:?}\n}}",
+               self.access_flags, self.name_index, self.descriptor_index, self.attributes_count, self.attributes)
     }
 }
 
