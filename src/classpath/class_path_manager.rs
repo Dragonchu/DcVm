@@ -78,15 +78,10 @@ impl ClassPathManager {
                         Ok(file) => {
                             let reader = BufReader::new(file);
                             let mut archive = zip::ZipArchive::new(reader).unwrap();
-                            for i in 0..archive.len() {
-                                let file = archive.by_index(i).unwrap();
-                                if file.name() != file_name {
-                                    continue;
-                                }
-                                if file.is_file() {
-                                    let class_file = ClassFileParser::zip(file).parse();
-                                    return Ok(class_file);
-                                }
+                            let class_file = archive.by_name(&file_name).unwrap();
+                            if class_file.is_file() {
+                                let class_file = ClassFileParser::zip(class_file).parse();
+                                return Ok(class_file);
                             }
                         }
                         Err(_) => continue,
@@ -110,6 +105,14 @@ mod tests {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_paths(d.display().to_string().as_str());
         let class_file = class_path_manager.search_class("Main").unwrap();
+        print!("{:?}", class_file);
+    }
+
+    #[test]
+    fn test_class_path_manager_jar() {
+        let mut class_path_manager = ClassPathManager::new();
+        class_path_manager.add_class_paths("/home/codespace/java/current/jre/lib/rt.jar");
+        let class_file = class_path_manager.search_class("java/lang/Boolean").unwrap();
         print!("{:?}", class_file);
     }
 }
