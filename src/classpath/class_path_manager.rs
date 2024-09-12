@@ -26,7 +26,7 @@ pub struct ClassPathManager {
 }
 
 impl ClassPathManager {
-    fn new() -> ClassPathManager {
+    pub fn new() -> ClassPathManager {
         ClassPathManager {
             run_time_class_path: Vec::new(),
         }

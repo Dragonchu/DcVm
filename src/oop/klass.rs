@@ -21,11 +21,11 @@ pub enum ClassState {
 }
 
 pub enum Klass {
-    InstanceKlass(InstanceKlass),
-    ArrayKlass(ArrayKlass),
-    TypeArrayKlass(TypeArrayKlass),
-    ObjArrayKlass(ObjArrayKlass),
-    MirrorKlass(MirrorKlass),
+    InstanceKlass(Arc<InstanceKlass>),
+    ArrayKlass(Arc<ArrayKlass>),
+    TypeArrayKlass(Arc<TypeArrayKlass>),
+    ObjArrayKlass(Arc<ObjArrayKlass>),
+    MirrorKlass(Arc<MirrorKlass>),
 }
 
 pub struct InstanceKlass {
@@ -89,8 +89,8 @@ impl TypeArrayKlass {
         TypeArrayKlass {
             class_loader,
             dimension: down_dimension_type.dimension + 1,
-            component_type: down_dimension_type.component_type,
-            down_dimension_type: Some(Box::new(down_dimension_type)),
+            component_type: down_dimension_type.component_type.clone(),
+            down_dimension_type: Some(down_dimension_type.clone()),
         }
     }
 }
@@ -118,13 +118,13 @@ impl ObjArrayKlass {
 
     pub fn multi_dimension(
         class_loader: Arc<dyn ClassLoader>,
-        down_dimension_type: ObjArrayKlass,
+        down_dimension_type: Arc<ObjArrayKlass>,
     ) -> Self {
         ObjArrayKlass {
             class_loader,
             dimension: down_dimension_type.dimension + 1,
-            component_type: down_dimension_type.component_type,
-            down_dimension_type: Some(Box::new(down_dimension_type)),
+            component_type: down_dimension_type.component_type.clone(),
+            down_dimension_type: Some(down_dimension_type),
         }
     }
 }
