@@ -12,3 +12,17 @@ pub type Jbyte = i8;
 pub type Jfloat = f32;
 pub type Jdouble = f64;
 pub type Jsize = isize;
+
+pub enum ValueType {
+    Void,
+    Byte,
+    Boolean,
+    Char,
+    Short,
+    Int,
+    Float,
+    Long,
+    Double,
+    Object,
+    Array,
+}
