@@ -7,44 +7,16 @@ pub enum AttributeInfo {
         attribute_length: U4,
         constant_value_index: U2,
     },
-    Code {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        max_stack: U2,
-        max_locals: U2,
-        code_length: U4,
-        code: Vec<U1>,
-        exception_table_length: U2,
-        //start_pc, end_pc, handler_pc, catch_type
-        exception_table: Vec<(U2, U2, U2, U2)>,
-        attributes_count: U2,
-        attributes: Vec<AttributeInfo>,
-    },
+    Code(CodeAtrribute),
     StackMapTable {
         attribute_name_index: U2,
         attribute_length: U4,
         number_of_entries: U2,
         entries: Vec<StackMapFrame>,
     },
-    Exceptions {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        number_of_exceptions: U2,
-        exception_index_table: Vec<U2>,
-    },
-    InnerClasses {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        number_of_classes: U2,
-        //inner_class_info_index, outer_class_info_index, inner_name_index, inner_class_access_flags
-        classes: Vec<(U2, U2, U2, U2)>,
-    },
-    EnclosingMethod {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        class_index: U2,
-        method_index: U2,
-    },
+    Exceptions(ExceptionsAttribute),
+    InnerClasses(InnerClassesAttribute),
+    EnclosingMethod(EnclosingMethodAttribute),
     Synthetic {
         attribute_name_index: U2,
         attribute_length: U4,
@@ -132,13 +104,7 @@ pub enum AttributeInfo {
         attribute_length: U4,
         default_value: ElementValue,
     },
-    BootstrapMethods {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        num_bootstrap_methods: U2,
-        //bootstrap_method_ref, num_bootstrap_arguments, bootstrap_arguments
-        bootstrap_methods: Vec<(U2, U2, Vec<U2>)>,
-    },
+    BootstrapMethods(BootstrapMethodsAttribute),
     MethodParameters {
         attribute_name_index: U2,
         attribute_length: U4,
@@ -149,18 +115,67 @@ pub enum AttributeInfo {
 }
 
 #[derive(Debug)]
+pub struct InnerClassesAttribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub number_of_classes: U2,
+    //inner_class_info_index, outer_class_info_index, inner_name_index, inner_class_access_flags
+    pub classes: Vec<(U2, U2, U2, U2)>,
+}
+
+#[derive(Debug)]
+pub struct EnclosingMethodAttribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub class_index: U2,
+    pub method_index: U2,
+}
+
+#[derive(Debug)]
+pub struct BootstrapMethodsAttribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub num_bootstrap_methods: U2,
+    //bootstrap_method_ref, num_bootstrap_arguments, bootstrap_arguments
+    pub bootstrap_methods: Vec<(U2, U2, Vec<U2>)>,
+}
+
+#[derive(Debug)]
+pub struct ExceptionsAttribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub number_of_exceptions: U2,
+    pub exception_index_table: Vec<U2>,
+}
+
+#[derive(Debug)]
+pub struct CodeAtrribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub max_stack: U2,
+    pub max_locals: U2,
+    pub code_length: U4,
+    pub code: Vec<U1>,
+    pub exception_table_length: U2,
+    //start_pc, end_pc, handler_pc, catch_type
+    pub exception_table: Vec<(U2, U2, U2, U2)>,
+    pub attributes_count: U2,
+    pub attributes: Vec<AttributeInfo>,
+}
+
+#[derive(Debug)]
 pub enum StackMapFrame {
     SameFrame {
         frame_type: U1,
     },
     SameLocals1StackItemFrame {
         frame_type: U1,
-        stack: [VerificationTypeInfo;1],
+        stack: [VerificationTypeInfo; 1],
     },
     SameLocals1StackItemFrameExtended {
         frame_type: U1,
         offset_delta: U2,
-        stack: [VerificationTypeInfo;1],
+        stack: [VerificationTypeInfo; 1],
     },
     ChopFrame {
         frame_type: U1,

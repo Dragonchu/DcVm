@@ -10,8 +10,9 @@ use crate::common::types::{U1, U2, U4};
 
 use super::{
     attribute_info::{
-        AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath,
-        VerificationTypeInfo,
+        AttributeInfo, BootstrapMethodsAttribute, CodeAtrribute, ElementValue,
+        EnclosingMethodAttribute, ExceptionsAttribute, InnerClassesAttribute, StackMapFrame,
+        TargetInfo, TypeAnnotation, TypePath, VerificationTypeInfo,
     },
     class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
 };
@@ -179,10 +180,10 @@ impl<'a> ClassFileParser<'a> {
                 Err(_) => {
                     println!("parsed constant_pool count: \n{:?}", constant_pool.len());
                     for (i, cp) in constant_pool.iter().enumerate() {
-                        println!("{}: {:?}", i+1, cp);
+                        println!("{}: {:?}", i + 1, cp);
                     }
                     panic!("Invalid tag")
-                },
+                }
             };
             match tag {
                 ConstantInfoTag::ConstantUtf8 => {
@@ -402,12 +403,12 @@ impl<'a> ClassFileParser<'a> {
                             for _ in 0..number_of_exceptions {
                                 exception_index_table.push(self.class_file_stream.read_u2());
                             }
-                            attributes.push(AttributeInfo::Exceptions {
+                            attributes.push(AttributeInfo::Exceptions(ExceptionsAttribute {
                                 attribute_name_index,
                                 attribute_length,
                                 number_of_exceptions,
                                 exception_index_table,
-                            });
+                            }));
                         }
                         "InnerClasses" => {
                             let number_of_classes = self.class_file_stream.read_u2();
@@ -424,22 +425,24 @@ impl<'a> ClassFileParser<'a> {
                                     inner_class_access_flags,
                                 ));
                             }
-                            attributes.push(AttributeInfo::InnerClasses {
+                            attributes.push(AttributeInfo::InnerClasses(InnerClassesAttribute {
                                 attribute_name_index,
                                 attribute_length,
                                 number_of_classes,
                                 classes,
-                            });
+                            }));
                         }
                         "EnclosingMethod" => {
                             let class_index = self.class_file_stream.read_u2();
                             let method_index = self.class_file_stream.read_u2();
-                            attributes.push(AttributeInfo::EnclosingMethod {
-                                attribute_name_index,
-                                attribute_length,
-                                class_index,
-                                method_index,
-                            });
+                            attributes.push(AttributeInfo::EnclosingMethod(
+                                EnclosingMethodAttribute {
+                                    attribute_name_index,
+                                    attribute_length,
+                                    class_index,
+                                    method_index,
+                                },
+                            ));
                         }
                         "Synthetic" => {
                             attributes.push(AttributeInfo::Synthetic {
@@ -640,12 +643,14 @@ impl<'a> ClassFileParser<'a> {
                                     bootstrap_arguments,
                                 ));
                             }
-                            attributes.push(AttributeInfo::BootstrapMethods {
-                                attribute_name_index,
-                                attribute_length,
-                                num_bootstrap_methods,
-                                bootstrap_methods,
-                            });
+                            attributes.push(AttributeInfo::BootstrapMethods(
+                                BootstrapMethodsAttribute {
+                                    attribute_name_index,
+                                    attribute_length,
+                                    num_bootstrap_methods,
+                                    bootstrap_methods,
+                                },
+                            ));
                         }
                         "MethodParameters" => {
                             let parameters_count = self.class_file_stream.read_u1();
@@ -700,7 +705,7 @@ impl<'a> ClassFileParser<'a> {
         let exception_table = self.parse_exception_table(exception_table_length);
         let attributes_count = self.class_file_stream.read_u2();
         let attributes = self.parse_attributes(attributes_count, constant_pool);
-        AttributeInfo::Code {
+        AttributeInfo::Code(CodeAtrribute {
             attribute_name_index,
             attribute_length,
             max_stack,
@@ -711,7 +716,7 @@ impl<'a> ClassFileParser<'a> {
             exception_table,
             attributes_count,
             attributes,
-        }
+        })
     }
 
     fn parse_exception_table(&mut self, exception_table_length: U2) -> Vec<(U2, U2, U2, U2)> {
