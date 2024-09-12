@@ -13,6 +13,7 @@ pub type Jfloat = f32;
 pub type Jdouble = f64;
 pub type Jsize = isize;
 
+#[derive(Debug, Clone, Copy)]
 pub enum ValueType {
     Void,
     Byte,

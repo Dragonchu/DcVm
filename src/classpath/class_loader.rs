@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::oop::{
     klass::{Klass, ObjArrayKlass, TypeArrayKlass},
     reflection,
@@ -6,7 +8,7 @@ use crate::oop::{
 use super::class_path_manager::ClassPathManager;
 
 pub trait ClassLoader {
-    fn load_class(&self, class_name: &str) -> Option<Klass>;
+    fn load_class(self: Arc<Self>, class_name: &str) -> Option<Klass>;
 }
 
 struct BaseClassLoader {
@@ -19,7 +21,7 @@ struct BootStrapClassLoader {
 
 
 impl ClassLoader for BaseClassLoader {
-    fn load_class(&self, class_name: &str) -> Option<Klass> {
+    fn load_class(self: Arc<Self>, class_name: &str) -> Option<Klass> {
         if class_name.starts_with('[') {
             let mut dimension = 0;
             while class_name.chars().nth(dimension).unwrap() == '[' {
@@ -28,10 +30,10 @@ impl ClassLoader for BaseClassLoader {
             if dimension == 1 {
                 if class_name.chars().nth(1).unwrap() == 'L' {
                     let component = class_name[1..].to_string();
-                    let component_class = self.load_class(&component);
-                    if let Some(Klass::InstanceKlass(component_class)) = component_class {
+                    let component_class = self.clone().load_class(&component);
+                    if let Some(Klass::InstanceKlass(component_type)) = component_class {
                         let object_array_klass = Klass::ObjArrayKlass(
-                            ObjArrayKlass::one_dimension(self, dimension, component_class),
+                            ObjArrayKlass::one_dimension(self.clone(), dimension, component_type: component_type),
                         );
                         return Some(object_array_klass);
                     }
@@ -41,26 +43,24 @@ impl ClassLoader for BaseClassLoader {
                     class_name.chars().nth(1).unwrap(),
                 );
                 let type_array_klass = Klass::TypeArrayKlass(TypeArrayKlass::one_dimension(
-                    self,
+                    self.clone(),
                     dimension,
                     component_type,
                 ));
                 return Some(type_array_klass);
             }
             let down_type_name = class_name[1..].to_string();
-            let down_type = self.load_class(&down_type_name);
+            let down_type = self.clone().load_class(&down_type_name);
             match down_type {
                 Some(Klass::ObjArrayKlass(down_type)) => {
                     return Some(Klass::ObjArrayKlass(ObjArrayKlass::multi_dimension(
-                        self,
-                        down_type.dimension + 1,
-                        down_type.component_type,
+                        self.clone(),
                         down_type,
                     )));
                 }
                 Some(Klass::TypeArrayKlass(down_type)) => {
                     return Some(Klass::TypeArrayKlass(TypeArrayKlass::multi_dimension(
-                        self,
+                        self.clone(),
                         down_type.dimension + 1,
                         down_type.component_type,
                         down_type,

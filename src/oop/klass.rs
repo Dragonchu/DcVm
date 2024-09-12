@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     classfile::attribute_info::{
         BootstrapMethodsAttribute, EnclosingMethodAttribute, InnerClassesAttribute,
@@ -31,8 +33,8 @@ pub struct InstanceKlass {
     access_flags: U2,
     name: String,
     class_type: ClassType,
-    supper_klass: Option<Box<Klass>>,
-    class_loader: ClassLoader,
+    supper_klass: Option<Arc<Klass>>,
+    class_loader: Arc<dyn ClassLoader>,
     source_file: String,
     signature: String,
     inner_class_attr: Option<InnerClassesAttribute>,
@@ -60,7 +62,7 @@ impl ArrayKlass {
 }
 
 pub struct TypeArrayKlass {
-    pub class_loader: ClassLoader,
+    pub class_loader: Arc<dyn ClassLoader>,
     pub dimension: usize,
     pub component_type: ValueType,
     pub down_dimension_type: Option<Box<TypeArrayKlass>>,
@@ -68,7 +70,7 @@ pub struct TypeArrayKlass {
 
 impl TypeArrayKlass {
     pub fn one_dimension(
-        class_loader: ClassLoader,
+        class_loader: Arc<dyn ClassLoader>,
         dimension: usize,
         component_type: ValueType,
     ) -> Self {
@@ -81,32 +83,30 @@ impl TypeArrayKlass {
     }
 
     pub fn multi_dimension(
-        class_loader: ClassLoader,
-        dimension: usize,
-        component_type: ValueType,
+        class_loader: Arc<dyn ClassLoader>,
         down_dimension_type: TypeArrayKlass,
     ) -> Self {
         TypeArrayKlass {
             class_loader,
-            dimension,
-            component_type,
+            dimension: down_dimension_type.dimension + 1,
+            component_type: down_dimension_type.component_type,
             down_dimension_type: Some(Box::new(down_dimension_type)),
         }
     }
 }
 
 pub struct ObjArrayKlass {
-    pub class_loader: Box<dyn ClassLoader>,
+    pub class_loader: Arc<dyn ClassLoader>, 
     pub dimension: usize,
-    pub component_type: InstanceKlass,
+    pub component_type: Arc<InstanceKlass>,
     pub down_dimension_type: Option<Box<ObjArrayKlass>>,
 }
 
 impl ObjArrayKlass {
     pub fn one_dimension(
-        class_loader: impl ClassLoader,
+        class_loader: Arc<dyn ClassLoader>,
         dimension: usize,
-        component_type: InstanceKlass,
+        component_type: Arc<InstanceKlass>,
     ) -> Self {
         ObjArrayKlass {
             class_loader,
@@ -117,15 +117,13 @@ impl ObjArrayKlass {
     }
 
     pub fn multi_dimension(
-        class_loader: ClassLoader,
-        dimension: usize,
-        component_type: InstanceKlass,
+        class_loader: Arc<dyn ClassLoader>,
         down_dimension_type: ObjArrayKlass,
     ) -> Self {
         ObjArrayKlass {
             class_loader,
-            dimension,
-            component_type,
+            dimension: down_dimension_type.dimension + 1,
+            component_type: down_dimension_type.component_type,
             down_dimension_type: Some(Box::new(down_dimension_type)),
         }
     }
