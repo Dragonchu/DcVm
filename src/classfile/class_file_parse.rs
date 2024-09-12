@@ -6,6 +6,7 @@ use std::{
 use zip::read::ZipFile;
 
 use crate::classfile::attribute_info::{Annotation, ElementValueItem};
+use crate::common::types::{U1, U2, U4};
 
 use super::{
     attribute_info::{
@@ -13,7 +14,6 @@ use super::{
         VerificationTypeInfo,
     },
     class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
-    types::{U1, U2, U4},
 };
 
 enum ClassFileStream<'a> {
