@@ -8,7 +8,7 @@ use crate::oop::{
 use super::class_path_manager::ClassPathManager;
 
 pub trait ClassLoader {
-    fn load_class(self: Arc<Self>, class_name: &str) -> Option<Klass>;
+    fn load_class(&self, class_name: &str) -> Option<Klass>;
 }
 
 struct BaseClassLoader {
@@ -21,7 +21,7 @@ struct BootStrapClassLoader {
 
 
 impl ClassLoader for BaseClassLoader {
-    fn load_class(self: Arc<Self>, class_name: &str) -> Option<Klass> {
+    fn load_class(&self, class_name: &str) -> Option<Klass> {
         if class_name.starts_with('[') {
             let mut dimension = 0;
             while class_name.chars().nth(dimension).unwrap() == '[' {

@@ -33,14 +33,14 @@ pub struct InstanceKlass {
     access_flags: U2,
     name: String,
     class_type: ClassType,
-    supper_klass: Option<Arc<Klass>>,
-    class_loader: Arc<dyn ClassLoader>,
+    supper_klass: &'static Klass,
+    class_loader: &'static dyn ClassLoader,
     source_file: String,
     signature: String,
-    inner_class_attr: Option<InnerClassesAttribute>,
-    enclosing_method_attr: Option<EnclosingMethodAttribute>,
-    boot_strap_methods_attr: BootstrapMethodsAttribute,
-    runtime_constant_pool: RuntimeConstantPool,
+    inner_class_attr: &'static InnerClassesAttribute,
+    enclosing_method_attr: &'static EnclosingMethodAttribute,
+    boot_strap_methods_attr: &'static BootstrapMethodsAttribute,
+    runtime_constant_pool: &'static RuntimeConstantPool,
     static_field_nums: usize,
     instance_field_nums: usize,
 }
@@ -62,10 +62,10 @@ impl ArrayKlass {
 }
 
 pub struct TypeArrayKlass {
-    pub class_loader: Arc<dyn ClassLoader>,
+    pub class_loader: &'static dyn ClassLoader,
     pub dimension: usize,
     pub component_type: ValueType,
-    pub down_dimension_type: Option<Box<TypeArrayKlass>>,
+    pub down_dimension_type: Option<&'static TypeArrayKlass>,
 }
 
 impl TypeArrayKlass {
@@ -83,7 +83,7 @@ impl TypeArrayKlass {
     }
 
     pub fn multi_dimension(
-        class_loader: Arc<dyn ClassLoader>,
+        class_loader: &'static dyn ClassLoader,
         down_dimension_type: TypeArrayKlass,
     ) -> Self {
         TypeArrayKlass {
@@ -96,10 +96,10 @@ impl TypeArrayKlass {
 }
 
 pub struct ObjArrayKlass {
-    pub class_loader: Arc<dyn ClassLoader>, 
+    pub class_loader: &'static dyn ClassLoader, 
     pub dimension: usize,
-    pub component_type: Arc<InstanceKlass>,
-    pub down_dimension_type: Option<Box<ObjArrayKlass>>,
+    pub component_type: &'static InstanceKlass<'a>,
+    pub down_dimension_type: &'a ObjArrayKlass<'a>,
 }
 
 impl ObjArrayKlass {
