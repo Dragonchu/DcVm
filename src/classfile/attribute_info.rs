@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::common::types::{U1, U2, U4};
 
 #[derive(Debug)]
@@ -114,6 +116,7 @@ pub enum AttributeInfo {
     },
 }
 
+type InnerClassesAttributeRef = Option<Arc<InnerClassesAttribute>>;
 #[derive(Debug)]
 pub struct InnerClassesAttribute {
     pub attribute_name_index: U2,

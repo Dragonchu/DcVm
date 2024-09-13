@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
-use crate::{classfile::class_file::CpInfo, classpath::class_loader::ClassLoader};
+use crate::{classfile::class_file::CpInfo, classpath::class_loader::ClassLoaderRef};
 
 pub struct RuntimeConstantPool {
-    class_loader: Arc<dyn ClassLoader>,
+    class_loader: ClassLoaderRef,
     raw_pool: Vec<CpInfo>,
     entry_count: usize,
 }

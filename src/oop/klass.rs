@@ -3,7 +3,10 @@ use std::sync::Arc;
 use crate::{
     classfile::attribute_info::{
         BootstrapMethodsAttribute, EnclosingMethodAttribute, InnerClassesAttribute,
-    }, classpath::class_loader::ClassLoader, common::types::{ValueType, U2}, runtime::constant_pool::RuntimeConstantPool
+    },
+    classpath::class_loader::ClassLoaderRef,
+    common::types::{ValueType, U2},
+    runtime::constant_pool::RuntimeConstantPool,
 };
 
 pub enum ClassType {
@@ -20,12 +23,14 @@ pub enum ClassState {
     InitializationError,
 }
 
+type KlassRef = Option<Arc<Klass>>;
+
 pub enum Klass {
-    InstanceKlass(Arc<InstanceKlass>),
-    ArrayKlass(Arc<ArrayKlass>),
-    TypeArrayKlass(Arc<TypeArrayKlass>),
-    ObjArrayKlass(Arc<ObjArrayKlass>),
-    MirrorKlass(Arc<MirrorKlass>),
+    InstanceKlass(InstanceKlass),
+    ArrayKlass(ArrayKlass),
+    TypeArrayKlass(TypeArrayKlass),
+    ObjArrayKlass(ObjArrayKlass),
+    MirrorKlass(MirrorKlass),
 }
 
 pub struct InstanceKlass {
@@ -33,11 +38,11 @@ pub struct InstanceKlass {
     access_flags: U2,
     name: String,
     class_type: ClassType,
-    supper_klass: &'static Klass,
-    class_loader: &'static dyn ClassLoader,
+    supper_klass: KlassRef,
+    class_loader: ClassLoaderRef,
     source_file: String,
     signature: String,
-    inner_class_attr: &'static InnerClassesAttribute,
+    inner_class_attr: InnerClassesAttribute,
     enclosing_method_attr: &'static EnclosingMethodAttribute,
     boot_strap_methods_attr: &'static BootstrapMethodsAttribute,
     runtime_constant_pool: &'static RuntimeConstantPool,
@@ -61,16 +66,18 @@ impl ArrayKlass {
     }
 }
 
+pub type TypeArrayKlassRef = Option<Arc<TypeArrayKlass>>;
+
 pub struct TypeArrayKlass {
-    pub class_loader: &'static dyn ClassLoader,
+    pub class_loader: ClassLoaderRef,
     pub dimension: usize,
     pub component_type: ValueType,
-    pub down_dimension_type: Option<&'static TypeArrayKlass>,
+    pub down_dimension_type: TypeArrayKlassRef,
 }
 
 impl TypeArrayKlass {
     pub fn one_dimension(
-        class_loader: Arc<dyn ClassLoader>,
+        class_loader: ClassLoaderRef,
         dimension: usize,
         component_type: ValueType,
     ) -> Self {
@@ -83,30 +90,30 @@ impl TypeArrayKlass {
     }
 
     pub fn multi_dimension(
-        class_loader: &'static dyn ClassLoader,
+        class_loader: ClassLoaderRef,
         down_dimension_type: TypeArrayKlass,
     ) -> Self {
         TypeArrayKlass {
             class_loader,
             dimension: down_dimension_type.dimension + 1,
             component_type: down_dimension_type.component_type.clone(),
-            down_dimension_type: Some(down_dimension_type.clone()),
+            down_dimension_type: Some(down_dimension_type),
         }
     }
 }
 
 pub struct ObjArrayKlass {
-    pub class_loader: &'static dyn ClassLoader, 
+    pub class_loader: ClassLoaderRef,
     pub dimension: usize,
-    pub component_type: &'static InstanceKlass<'a>,
-    pub down_dimension_type: &'a ObjArrayKlass<'a>,
+    pub component_type: &'static InstanceKlass,
+    pub down_dimension_type: &'static ObjArrayKlass,
 }
 
 impl ObjArrayKlass {
     pub fn one_dimension(
-        class_loader: Arc<dyn ClassLoader>,
+        class_loader: ClassLoaderRef,
         dimension: usize,
-        component_type: Arc<InstanceKlass>,
+        component_type: &'static InstanceKlass,
     ) -> Self {
         ObjArrayKlass {
             class_loader,
@@ -117,7 +124,7 @@ impl ObjArrayKlass {
     }
 
     pub fn multi_dimension(
-        class_loader: Arc<dyn ClassLoader>,
+        class_loader: ClassLoaderRef,
         down_dimension_type: Arc<ObjArrayKlass>,
     ) -> Self {
         ObjArrayKlass {
