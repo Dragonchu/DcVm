@@ -2,19 +2,34 @@ use std::{collections::HashMap, hash::Hash};
 
 use crate::classfile::types::U2;
 
-use super::oop::Oop;
+use super::oop::{MirrorOop, MirrorOopDesc, Oop};
 
 pub enum Klass {
     InstanceKlass(InstanceKlass),
 }
 
+pub enum ClassState {
+    Allocated,
+    Loaded,
+    Linked,
+    BeginInitialized,
+    FullyInitialized,
+    InitializationError,
+}
+
+pub enum ClassType {
+    InstanceKlass,
+    ObjectArrayKlass,
+    TypeArrayKlass,
+}
+
 struct KlassMeta {
-    state: String,
+    state: ClassState,
     access_flags: U2,
     name: String,
-    ktype: String,
-    java_mirror: String,
-    super_klass: Box<InstanceKlass>,
+    ktype: ClassType,
+    java_mirror: Option<MirrorOop>,
+    super_klass: Option<Box<InstanceKlass>>,
 }
 pub struct InstanceKlass {
     klass_meta: KlassMeta,
@@ -32,6 +47,6 @@ pub struct InstanceKlass {
     all_methods: HashMap<String, String>,
     vtable: HashMap<String, String>,
     static_fields: HashMap<String, String>,
-    static_field_values: Vec<Box<dyn Oop>>,
+    static_field_values: Vec<Oop>,
     interfaces: HashMap<String, Box<InstanceKlass>>,
 }
