@@ -4,7 +4,7 @@ use crate::{common::ValueType, jni::jni_md::jint};
 
 use super::klass::{InstanceKlass, Klass};
 
-pub type MirrorOop = Box<MirrorOopDesc>;
+pub type MirrorOop = Rc<MirrorOopDesc>;
 
 pub enum Oop {
     InstanceOopDesc(InstanceOopDesc),

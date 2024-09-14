@@ -2,7 +2,7 @@ use std::{any::Any, collections::HashMap, hash::Hash, rc::Rc};
 
 use downcast_rs::Downcast;
 
-use crate::{classfile::types::U2, classpath::class_loader::ClassLoader, common::ValueType};
+use crate::{classfile::{class_file::ClassFile, types::U2}, classpath::class_loader::ClassLoader, common::ValueType};
 
 use super::oop::{InstanceOop, MirrorOop, MirrorOopDesc, Oop};
 
@@ -55,6 +55,40 @@ pub struct InstanceKlass {
 
 impl Klass for InstanceKlass {}
 
+impl InstanceKlass {
+    fn new() -> Self {
+        Self {
+            klass_meta: KlassMeta {
+                state: None,
+                access_flags: 0,
+                name: String::new(),
+                ktype: ClassType::InstanceKlass,
+                java_mirror: None,
+                super_klass: None,
+            },
+            class_loader: Box::new(BootStrapClassLoader::new()),
+            java_loader: MirrorOopDesc::new(InstanceOopDesc::new(
+                OopMeta::new(OopType::InstanceOop, InstanceKlass::new()),
+                Vec::new(),
+            )),
+            class_file: String::new(),
+            source_file: String::new(),
+            signature: String::new(),
+            inner_class_attr: String::new(),
+            enclosing_method_attr: String::new(),
+            boot_strap_methods_attr: String::new(),
+            runtime_constant_pool: String::new(),
+            static_field_nums: 0,
+            instance_field_nums: 0,
+            all_methods: HashMap::new(),
+            vtable: HashMap::new(),
+            static_fields: HashMap::new(),
+            static_field_values: Vec::new(),
+            interfaces: HashMap::new(),
+        }
+    }
+}
+
 pub struct ArrayKlassMeta {
     klass_meta: KlassMeta,
     class_loader: Rc<dyn ClassLoader>,
@@ -98,12 +132,33 @@ impl ObjectArrayKlass {
         class_loader: Rc<dyn ClassLoader>,
         dimension: usize,
         component_type: Rc<InstanceKlass>,
-    ) -> ObjectArrayKlass {
-        let array_klass_meta =
-            ArrayKlassMeta::new(class_loader.clone(), None, dimension, ClassType::ObjectArrayKlass);
-        ObjectArrayKlass {
+    ) -> Self {
+        let array_klass_meta = ArrayKlassMeta::new(
+            class_loader.clone(),
+            None,
+            dimension,
+            ClassType::ObjectArrayKlass,
+        );
+        Self {
             array_klass_meta,
             component_type: component_type.clone(),
+            down_dimension_type: None,
+        }
+    }
+
+    pub fn recurese_create(
+        class_loader: Rc<dyn ClassLoader>,
+        down_type: Rc<ObjectArrayKlass>,
+    ) -> Self {
+        let array_klass_meta = ArrayKlassMeta::new(
+            class_loader.clone(),
+            down_type.array_klass_meta.java_loader.clone(),
+            down_type.array_klass_meta.dimension + 1,
+            ClassType::ObjectArrayKlass,
+        );
+        Self {
+            array_klass_meta,
+            component_type: down_type.component_type.clone(),
             down_dimension_type: None,
         }
     }
@@ -123,11 +178,32 @@ impl TypeArrayKlass {
         dimension: usize,
         component_type: ValueType,
     ) -> TypeArrayKlass {
-        let array_klass_meta =
-            ArrayKlassMeta::new(class_loader.clone(), None, dimension, ClassType::TypeArrayKlass);
+        let array_klass_meta = ArrayKlassMeta::new(
+            class_loader.clone(),
+            None,
+            dimension,
+            ClassType::TypeArrayKlass,
+        );
         TypeArrayKlass {
             array_klass_meta,
             component_type,
+            down_dimension_type: None,
+        }
+    }
+
+    pub fn recurese_create(
+        class_loader: Rc<dyn ClassLoader>,
+        down_type: Rc<TypeArrayKlass>,
+    ) -> TypeArrayKlass {
+        let array_klass_meta = ArrayKlassMeta::new(
+            class_loader.clone(),
+            down_type.array_klass_meta.java_loader.clone(),
+            down_type.array_klass_meta.dimension + 1,
+            ClassType::TypeArrayKlass,
+        );
+        TypeArrayKlass {
+            array_klass_meta,
+            component_type: down_type.component_type.clone(),
             down_dimension_type: None,
         }
     }

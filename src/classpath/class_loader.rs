@@ -1,6 +1,11 @@
 use std::{any::Any, rc::Rc, sync::Arc};
 
-use crate::{common::ValueType, oops::{klass::{InstanceKlass, Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass}, reflection}};
+use crate::{
+    classfile::class_file_parse::ClassFileParser, common::ValueType, oops::{
+        klass::{InstanceKlass, Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
+        reflection,
+    }
+};
 
 use super::class_path_manager::ClassPathManager;
 
@@ -61,7 +66,20 @@ impl BootStrapClassLoader {
     }
 
     fn do_load_multi_dimension_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
-        let down_type = self.load_class(&class_name[1..]);
+        let down_type = self.clone().load_class(&class_name[1..])?;
+        if let Ok(object_array_klass) = down_type.clone().downcast_rc::<ObjectArrayKlass>() {
+            Ok(Rc::new(ObjectArrayKlass::recurese_create(
+                self.clone(),
+                object_array_klass.clone(),
+            )))
+        } else if let Ok(type_array_klass) = down_type.clone().downcast_rc::<TypeArrayKlass>() {
+            Ok(Rc::new(TypeArrayKlass::recurese_create(
+                self.clone(),
+                type_array_klass.clone(),
+            )))
+        } else {
+            Err(ClassNotFoundError)
+        }
     }
 
     fn do_load_object_array_class(
@@ -81,13 +99,18 @@ impl BootStrapClassLoader {
         }
     }
 
-    fn do_load_type_array_class(self: Rc<Self>, dimension: usize, primitive_type: char) -> KlassRef {
+    fn do_load_type_array_class(
+        self: Rc<Self>,
+        dimension: usize,
+        primitive_type: char,
+    ) -> KlassRef {
         let component_type = reflection::primitive_type_to_value_type_no_wrap(primitive_type);
         Rc::new(TypeArrayKlass::new(self.clone(), dimension, component_type))
     }
 
     fn do_load_instance_class(&self, class_name: &str) -> Result<KlassRef> {
-
+        let class_file = self.class_path_manager.search_class(class_name)?;
+        Rc::new(InstanceKlass::new(class_file))
     }
 
     fn calculate_arr_dimension(&self, class_name: &str) -> usize {
