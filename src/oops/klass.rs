@@ -35,8 +35,8 @@ pub struct KlassMeta {
 
 pub struct InstanceKlass {
     klass_meta: KlassMeta,
-    class_loader: Box<dyn ClassLoader>,
-    java_loader: MirrorOop,
+    class_loader: Rc<dyn ClassLoader>,
+    java_loader: Option<MirrorOop>,
     class_file: String,
     source_file: String,
     signature: String,
@@ -50,13 +50,13 @@ pub struct InstanceKlass {
     vtable: HashMap<String, String>,
     static_fields: HashMap<String, String>,
     static_field_values: Vec<Oop>,
-    interfaces: HashMap<String, Box<InstanceKlass>>,
+    interfaces: HashMap<String, Rc<InstanceKlass>>,
 }
 
 impl Klass for InstanceKlass {}
 
 impl InstanceKlass {
-    fn new() -> Self {
+    pub fn new(class_file: ClassFile, class_loader: Rc<dyn ClassLoader>) -> Self {
         Self {
             klass_meta: KlassMeta {
                 state: None,
@@ -66,11 +66,8 @@ impl InstanceKlass {
                 java_mirror: None,
                 super_klass: None,
             },
-            class_loader: Box::new(BootStrapClassLoader::new()),
-            java_loader: MirrorOopDesc::new(InstanceOopDesc::new(
-                OopMeta::new(OopType::InstanceOop, InstanceKlass::new()),
-                Vec::new(),
-            )),
+            class_loader: class_loader.clone(),
+            java_loader: None,
             class_file: String::new(),
             source_file: String::new(),
             signature: String::new(),

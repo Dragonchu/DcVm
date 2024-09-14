@@ -1,10 +1,12 @@
 use std::{any::Any, rc::Rc, sync::Arc};
 
 use crate::{
-    classfile::class_file_parse::ClassFileParser, common::ValueType, oops::{
+    classfile::class_file_parse::ClassFileParser,
+    common::ValueType,
+    oops::{
         klass::{InstanceKlass, Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
         reflection,
-    }
+    },
 };
 
 use super::class_path_manager::ClassPathManager;
@@ -108,9 +110,12 @@ impl BootStrapClassLoader {
         Rc::new(TypeArrayKlass::new(self.clone(), dimension, component_type))
     }
 
-    fn do_load_instance_class(&self, class_name: &str) -> Result<KlassRef> {
-        let class_file = self.class_path_manager.search_class(class_name)?;
-        Rc::new(InstanceKlass::new(class_file))
+    fn do_load_instance_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+        if let Ok(class_file) = self.clone().class_path_manager.search_class(class_name) {
+            Ok(Rc::new(InstanceKlass::new(class_file, self.clone())))
+        } else {
+            Err(ClassNotFoundError)
+        }
     }
 
     fn calculate_arr_dimension(&self, class_name: &str) -> usize {
