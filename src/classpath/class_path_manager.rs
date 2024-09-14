@@ -30,7 +30,7 @@ impl ClassPathManager {
         }
     }
 
-    fn add_class_path(&mut self, path: &str) {
+    pub fn add_class_path(&mut self, path: &str) {
         let md = fs::metadata(&path).expect("Invalid class path");
         let source = if md.is_dir() {
             ClassPathEntry::DIR {
