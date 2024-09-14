@@ -33,6 +33,8 @@ pub enum Klass {
     MirrorKlass(MirrorKlass),
 }
 
+pub type InstanceKlassRef = Option<Arc<InstanceKlass>>;
+
 pub struct InstanceKlass {
     state: ClassState,
     access_flags: U2,
@@ -102,11 +104,13 @@ impl TypeArrayKlass {
     }
 }
 
+pub type ObjArrayKlassRef = Option<Arc<ObjArrayKlass>>;
+
 pub struct ObjArrayKlass {
     pub class_loader: ClassLoaderRef,
     pub dimension: usize,
     pub component_type: &'static InstanceKlass,
-    pub down_dimension_type: &'static ObjArrayKlass,
+    pub down_dimension_type: ObjArrayKlassRef,
 }
 
 impl ObjArrayKlass {

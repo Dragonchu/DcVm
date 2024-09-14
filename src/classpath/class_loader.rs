@@ -14,7 +14,7 @@ struct ClassLoader {
     parent: ClassLoaderRef,
 }
 
-impl ClassLoader{
+impl ClassLoader {
     fn load_class(self: Arc<Self>, class_name: &str) -> Option<Klass> {
         if class_name.starts_with('[') {
             let mut dimension = 0;
@@ -39,26 +39,27 @@ impl ClassLoader{
                 let component_type = reflection::primitive_type_to_value_type_no_wrap(
                     class_name.chars().nth(1).unwrap(),
                 );
-                let type_array_klass = Klass::TypeArrayKlass(
-                    TypeArrayKlass::one_dimension(self.clone(), dimension, component_type),
-                );
+                let type_array_klass = Klass::TypeArrayKlass(TypeArrayKlass::one_dimension(
+                    Some(self.clone()),
+                    dimension,
+                    component_type,
+                ));
                 return Some(type_array_klass);
             }
             let down_type_name = class_name[1..].to_string();
             let down_type = self.clone().load_class(&down_type_name);
             match down_type {
                 Some(Klass::ObjArrayKlass(down_type)) => {
-                    return Some(Klass::ObjArrayKlass(Arc::new(
-                        ObjArrayKlass::multi_dimension(self.clone(), down_type.clone()),
+                    return Some(Klass::ObjArrayKlass(ObjArrayKlass::multi_dimension(
+                        Some(self.clone()),
+                        down_type,
                     )));
                 }
                 Some(Klass::TypeArrayKlass(down_type)) => {
-                    return Some(Klass::TypeArrayKlass(
-                        Arc::new(
-                        TypeArrayKlass::multi_dimension(
-                        self.clone(),
-                        down_type.clone(),
-                    ))));
+                    return Some(Klass::TypeArrayKlass(TypeArrayKlass::multi_dimension(
+                        Some(self.clone()),
+                        down_type,
+                    )));
                 }
                 _ => return None,
             }
