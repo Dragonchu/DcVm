@@ -1,4 +1,4 @@
-use std::{any::Any, rc::Rc, sync::Arc};
+use std::{any::Any, cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     classfile::class_file_parse::ClassFileParser,
@@ -9,66 +9,74 @@ use crate::{
     },
 };
 
-use super::class_path_manager::ClassPathManager;
+use super::class_path_manager::{self, ClassPathManager};
 
-struct ClassNotFoundError;
+pub struct ClassNotFoundError;
 
 type Result<T> = std::result::Result<T, ClassNotFoundError>;
 
 pub trait ClassLoader {
-    fn load_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef>;
+    fn load_class(
+        self: Rc<Self>,
+        class_name: &str,
+        class_path_manager: ClassPathManager,
+    ) -> Result<KlassRef>;
 }
 
 pub struct BootStrapClassLoader {
-    class_path_manager: ClassPathManager,
     parent: Option<Rc<dyn ClassLoader>>,
 }
 
 impl ClassLoader for BootStrapClassLoader {
-    fn load_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+    fn load_class(
+        self: Rc<Self>,
+        class_name: &str,
+        class_path_manager: ClassPathManager,
+    ) -> Result<KlassRef> {
         if let Some(cl) = &self.parent {
-            ClassLoader::load_class(cl.to_owned(), class_name)
+            ClassLoader::load_class(cl.to_owned(), class_name, class_path_manager)
         } else {
-            self.do_load_class(class_name)
+            self.do_load_class(class_name, class_path_manager)
         }
     }
 }
 
 impl BootStrapClassLoader {
     pub fn new() -> BootStrapClassLoader {
-        BootStrapClassLoader {
-            class_path_manager: ClassPathManager::new(),
-            parent: None,
-        }
+        BootStrapClassLoader { parent: None }
     }
 
-    fn do_load_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+    fn do_load_class(
+        self: Rc<Self>,
+        class_name: &str,
+        class_path_manager: ClassPathManager,
+    ) -> Result<KlassRef> {
         if self.is_array_class(class_name) {
-            self.do_load_array_class(class_name)
+            self.do_load_array_class(class_name, class_path_manager)
         } else {
-            self.do_load_instance_class(class_name)
+            self.do_load_instance_class(class_name, class_path_manager)
         }
     }
 
-    fn do_load_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+    fn do_load_array_class(self: Rc<Self>, class_name: &str, class_path_manager: ClassPathManager) -> Result<KlassRef> {
         let dimension = self.calculate_arr_dimension(class_name);
         if dimension == 1 {
-            self.do_load_one_dimension_array_class(class_name)
+            self.do_load_one_dimension_array_class(class_name, class_path_manager)
         } else {
-            self.do_load_multi_dimension_array_class(class_name)
+            self.do_load_multi_dimension_array_class(class_name, class_path_manager)
         }
     }
 
-    fn do_load_one_dimension_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+    fn do_load_one_dimension_array_class(self: Rc<Self>, class_name: &str, class_path_manager: ClassPathManager) -> Result<KlassRef> {
         if class_name.chars().nth(1).unwrap() == '[' {
-            self.do_load_object_array_class(1, &class_name[2..])
+            self.do_load_object_array_class(1, &class_name[2..], class_path_manager)
         } else {
             Ok(self.do_load_type_array_class(1, class_name.chars().nth(1).unwrap()))
         }
     }
 
-    fn do_load_multi_dimension_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
-        let down_type = self.clone().load_class(&class_name[1..])?;
+    fn do_load_multi_dimension_array_class(self: Rc<Self>, class_name: &str, class_path_manager: ClassPathManager) -> Result<KlassRef> {
+        let down_type = self.clone().load_class(&class_name[1..], class_path_manager)?;
         if let Ok(object_array_klass) = down_type.clone().downcast_rc::<ObjectArrayKlass>() {
             Ok(Rc::new(ObjectArrayKlass::recurese_create(
                 self.clone(),
@@ -88,8 +96,9 @@ impl BootStrapClassLoader {
         self: Rc<Self>,
         dimension: usize,
         down_type_name: &str,
+        class_path_manager: ClassPathManager
     ) -> Result<KlassRef> {
-        let down_type = self.clone().load_class(down_type_name)?;
+        let down_type = self.clone().load_class(down_type_name, class_path_manager)?;
         if let Ok(instance_klass) = down_type.downcast_rc::<InstanceKlass>() {
             Ok(Rc::new(ObjectArrayKlass::new(
                 self.clone(),
@@ -110,8 +119,12 @@ impl BootStrapClassLoader {
         Rc::new(TypeArrayKlass::new(self.clone(), dimension, component_type))
     }
 
-    fn do_load_instance_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
-        if let Ok(class_file) = self.clone().class_path_manager.search_class(class_name) {
+    fn do_load_instance_class(
+        self: Rc<Self>,
+        class_name: &str,
+        mut class_path_manager: ClassPathManager,
+    ) -> Result<KlassRef> {
+        if let Ok(class_file) = class_path_manager.search_class(class_name) {
             Ok(Rc::new(InstanceKlass::new(class_file, self.clone())))
         } else {
             Err(ClassNotFoundError)

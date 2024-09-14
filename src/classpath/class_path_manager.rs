@@ -1,11 +1,9 @@
 use std::{
-    fs::{self, File},
-    io::{BufReader, Read},
+    fs::{self},
+    io::BufReader,
 };
 
-use zip::read::ZipFile;
-
-use crate::classfile::{self, class_file::ClassFile, class_file_parse::ClassFileParser};
+use crate::classfile::{class_file::ClassFile, class_file_parse::ClassFileParser};
 
 enum ClassPathEntry {
     DIR { path: String },
@@ -13,7 +11,7 @@ enum ClassPathEntry {
 }
 
 #[derive(Debug, Clone)]
-struct ClassNotFoundError;
+pub struct ClassNotFoundError;
 
 impl std::fmt::Display for ClassNotFoundError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -112,7 +110,9 @@ mod tests {
     fn test_class_path_manager_jar() {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_paths("/home/codespace/java/current/jre/lib/rt.jar");
-        let class_file = class_path_manager.search_class("java/lang/Boolean").unwrap();
+        let class_file = class_path_manager
+            .search_class("java/lang/Boolean")
+            .unwrap();
         print!("{:?}", class_file);
     }
 }
