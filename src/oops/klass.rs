@@ -1,14 +1,16 @@
-use std::{any::Any, collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
-use downcast_rs::Downcast;
 
 use crate::{classfile::{class_file::ClassFile, types::U2}, classpath::class_loader::ClassLoader, common::ValueType};
 
-use super::oop::{InstanceOop, MirrorOop, MirrorOopDesc, Oop};
+use super::oop::{MirrorOop, Oop};
 
-pub type KlassRef = Rc<dyn Klass>;
-pub trait Klass: Downcast {}
-impl_downcast!(Klass);
+pub type KlassRef = Klass;
+pub enum Klass {
+    InstanceKlass(Rc<InstanceKlass>),
+    ObjectArrayKlass(Rc<ObjectArrayKlass>),
+    TypeArrayKlass(Rc<TypeArrayKlass>),
+}
 pub enum ClassState {
     Allocated,
     Loaded,
@@ -52,8 +54,6 @@ pub struct InstanceKlass {
     static_field_values: Vec<Oop>,
     interfaces: HashMap<String, Rc<InstanceKlass>>,
 }
-
-impl Klass for InstanceKlass {}
 
 impl InstanceKlass {
     pub fn new(class_file: ClassFile, class_loader: Rc<dyn ClassLoader>) -> Self {
@@ -122,8 +122,6 @@ pub struct ObjectArrayKlass {
     down_dimension_type: Option<Box<ObjectArrayKlass>>,
 }
 
-impl Klass for ObjectArrayKlass {}
-
 impl ObjectArrayKlass {
     pub fn new(
         class_loader: Rc<dyn ClassLoader>,
@@ -166,8 +164,6 @@ pub struct TypeArrayKlass {
     component_type: ValueType,
     down_dimension_type: Option<Rc<TypeArrayKlass>>,
 }
-
-impl Klass for TypeArrayKlass {}
 
 impl TypeArrayKlass {
     pub fn new(

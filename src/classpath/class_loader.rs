@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::oops::{
-    klass::{InstanceKlass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
+    klass::{InstanceKlass, Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
     reflection,
 };
 
@@ -88,15 +88,13 @@ impl BootStrapClassLoader {
         let down_type = self
             .clone()
             .load_class(&class_name[1..], class_path_manager)?;
-        if let Ok(object_array_klass) = down_type.clone().downcast_rc::<ObjectArrayKlass>() {
-            Ok(Rc::new(ObjectArrayKlass::recurese_create(
-                self.clone(),
-                object_array_klass.clone(),
+        if let Klass::ObjectArrayKlass(object_array_klass_ref) = down_type {
+            Ok(Klass::ObjectArrayKlass(Rc::new(
+                ObjectArrayKlass::recurese_create(self.clone(), object_array_klass_ref.clone()),
             )))
-        } else if let Ok(type_array_klass) = down_type.clone().downcast_rc::<TypeArrayKlass>() {
-            Ok(Rc::new(TypeArrayKlass::recurese_create(
-                self.clone(),
-                type_array_klass.clone(),
+        } else if let Klass::TypeArrayKlass(type_array_klass_ref) = down_type {
+            Ok(Klass::TypeArrayKlass(Rc::new(
+                TypeArrayKlass::recurese_create(self.clone(), type_array_klass_ref.clone()),
             )))
         } else {
             Err(ClassNotFoundError)
@@ -112,12 +110,12 @@ impl BootStrapClassLoader {
         let down_type = self
             .clone()
             .load_class(down_type_name, class_path_manager)?;
-        if let Ok(instance_klass) = down_type.downcast_rc::<InstanceKlass>() {
-            Ok(Rc::new(ObjectArrayKlass::new(
+        if let Klass::InstanceKlass(instance_klass_ref) = down_type {
+            Ok(Klass::ObjectArrayKlass(Rc::new(ObjectArrayKlass::new(
                 self.clone(),
                 dimension,
-                instance_klass.clone(),
-            )))
+                instance_klass_ref.clone(),
+            ))))
         } else {
             Err(ClassNotFoundError)
         }
@@ -129,7 +127,11 @@ impl BootStrapClassLoader {
         primitive_type: char,
     ) -> KlassRef {
         let component_type = reflection::primitive_type_to_value_type_no_wrap(primitive_type);
-        Rc::new(TypeArrayKlass::new(self.clone(), dimension, component_type))
+        Klass::TypeArrayKlass(Rc::new(TypeArrayKlass::new(
+            self.clone(),
+            dimension,
+            component_type,
+        )))
     }
 
     fn do_load_instance_class(
@@ -138,7 +140,10 @@ impl BootStrapClassLoader {
         mut class_path_manager: ClassPathManager,
     ) -> Result<KlassRef> {
         if let Ok(class_file) = class_path_manager.search_class(class_name) {
-            Ok(Rc::new(InstanceKlass::new(class_file, self.clone())))
+            Ok(Klass::InstanceKlass(Rc::new(InstanceKlass::new(
+                class_file,
+                self.clone(),
+            ))))
         } else {
             Err(ClassNotFoundError)
         }
@@ -173,7 +178,7 @@ mod tests {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
-        let class_name = "java/lang/String";
+        let class_name = "String";
         let klass = class_loader
             .load_class(class_name, class_path_manager)
             .unwrap();
