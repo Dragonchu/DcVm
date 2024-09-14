@@ -1,13 +1,14 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{any::Any, collections::HashMap, hash::Hash, rc::Rc};
 
-use crate::classfile::types::U2;
+use downcast_rs::Downcast;
 
-use super::oop::{MirrorOop, MirrorOopDesc, Oop};
+use crate::{classfile::types::U2, classpath::class_loader::ClassLoader, common::ValueType};
 
-pub enum Klass {
-    InstanceKlass(InstanceKlass),
-}
+use super::oop::{InstanceOop, MirrorOop, MirrorOopDesc, Oop};
 
+pub type KlassRef = Rc<dyn Klass>;
+pub trait Klass: Downcast {}
+impl_downcast!(Klass);
 pub enum ClassState {
     Allocated,
     Loaded,
@@ -23,18 +24,19 @@ pub enum ClassType {
     TypeArrayKlass,
 }
 
-struct KlassMeta {
-    state: ClassState,
+pub struct KlassMeta {
+    state: Option<ClassState>,
     access_flags: U2,
     name: String,
     ktype: ClassType,
     java_mirror: Option<MirrorOop>,
     super_klass: Option<Box<InstanceKlass>>,
 }
+
 pub struct InstanceKlass {
     klass_meta: KlassMeta,
-    class_loader: String,
-    java_loader: String,
+    class_loader: Box<dyn ClassLoader>,
+    java_loader: MirrorOop,
     class_file: String,
     source_file: String,
     signature: String,
@@ -49,4 +51,84 @@ pub struct InstanceKlass {
     static_fields: HashMap<String, String>,
     static_field_values: Vec<Oop>,
     interfaces: HashMap<String, Box<InstanceKlass>>,
+}
+
+impl Klass for InstanceKlass {}
+
+pub struct ArrayKlassMeta {
+    klass_meta: KlassMeta,
+    class_loader: Rc<dyn ClassLoader>,
+    java_loader: Option<MirrorOop>,
+    dimension: usize,
+}
+
+impl ArrayKlassMeta {
+    fn new(
+        class_loader: Rc<dyn ClassLoader>,
+        java_loader: Option<MirrorOop>,
+        dimension: usize,
+        class_type: ClassType,
+    ) -> ArrayKlassMeta {
+        ArrayKlassMeta {
+            klass_meta: KlassMeta {
+                state: None,
+                access_flags: 0,
+                name: String::new(),
+                ktype: class_type,
+                java_mirror: None,
+                super_klass: None,
+            },
+            class_loader: class_loader.clone(),
+            java_loader,
+            dimension,
+        }
+    }
+}
+
+pub struct ObjectArrayKlass {
+    array_klass_meta: ArrayKlassMeta,
+    component_type: Rc<InstanceKlass>,
+    down_dimension_type: Option<Box<ObjectArrayKlass>>,
+}
+
+impl Klass for ObjectArrayKlass {}
+
+impl ObjectArrayKlass {
+    pub fn new(
+        class_loader: Rc<dyn ClassLoader>,
+        dimension: usize,
+        component_type: Rc<InstanceKlass>,
+    ) -> ObjectArrayKlass {
+        let array_klass_meta =
+            ArrayKlassMeta::new(class_loader.clone(), None, dimension, ClassType::ObjectArrayKlass);
+        ObjectArrayKlass {
+            array_klass_meta,
+            component_type: component_type.clone(),
+            down_dimension_type: None,
+        }
+    }
+}
+
+pub struct TypeArrayKlass {
+    array_klass_meta: ArrayKlassMeta,
+    component_type: ValueType,
+    down_dimension_type: Option<Rc<TypeArrayKlass>>,
+}
+
+impl Klass for TypeArrayKlass {}
+
+impl TypeArrayKlass {
+    pub fn new(
+        class_loader: Rc<dyn ClassLoader>,
+        dimension: usize,
+        component_type: ValueType,
+    ) -> TypeArrayKlass {
+        let array_klass_meta =
+            ArrayKlassMeta::new(class_loader.clone(), None, dimension, ClassType::TypeArrayKlass);
+        TypeArrayKlass {
+            array_klass_meta,
+            component_type,
+            down_dimension_type: None,
+        }
+    }
 }

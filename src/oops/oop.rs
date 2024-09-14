@@ -1,4 +1,6 @@
-use crate::jni::jni_md::jint;
+use std::rc::Rc;
+
+use crate::{common::ValueType, jni::jni_md::jint};
 
 use super::klass::{InstanceKlass, Klass};
 
@@ -15,33 +17,10 @@ pub enum OopType {
     TypeArrayOop,
 }
 
-pub enum ValueType {
-    Byte,
-    Char,
-    Short,
-    Int,
-    Long,
-    Float,
-    Double,
-    Boolean,
-    Void,
-}
-
 pub struct OopMeta<T> {
     oop_type: OopType,
     hash: jint,
     klass: T,
-}
-
-pub struct InstanceOopDesc {
-    oop_desc: OopMeta<InstanceKlass>,
-    instance_field_values: Vec<Oop>,
-}
-
-pub struct MirrorOopDesc {
-    instance_oop: InstanceOopDesc,
-    mirror_target: Option<Klass>,
-    mirror_primitive_type: Option<ValueType>,
 }
 
 impl<T> OopMeta<T> {
@@ -58,8 +37,32 @@ impl<T> OopMeta<T> {
     }
 }
 
+pub type InstanceOop = Rc<InstanceOopDesc>;
+
+pub struct InstanceOopDesc {
+    oop_desc: OopMeta<InstanceKlass>,
+    instance_field_values: Vec<Oop>,
+}
+
+pub struct MirrorOopDesc {
+    instance_oop: InstanceOop,
+    mirror_target: Option<KlassRef>,
+    mirror_primitive_type: Option<ValueType>,
+}
+
+impl MirrorOopDesc {
+    pub fn new(instance_oop: InstanceOop) -> MirrorOopDesc {
+        MirrorOopDesc {
+            instance_oop,
+            mirror_target: None,
+            mirror_primitive_type: None,
+        }
+    }
+}
+
+
 impl InstanceOopDesc {
-    fn get_instance_class(&self) -> InstanceKlass {
-        self.get_instance_class()
+    fn get_instance_class(&self) -> &InstanceKlass {
+        self.oop_desc.get_klass()
     }
 }
