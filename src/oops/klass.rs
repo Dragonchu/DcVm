@@ -6,11 +6,13 @@ use crate::{classfile::{class_file::ClassFile, types::U2}, classpath::class_load
 use super::oop::{MirrorOop, Oop};
 
 pub type KlassRef = Klass;
+#[derive(Debug)]
 pub enum Klass {
     InstanceKlass(Rc<InstanceKlass>),
     ObjectArrayKlass(Rc<ObjectArrayKlass>),
     TypeArrayKlass(Rc<TypeArrayKlass>),
 }
+#[derive(Debug)]
 pub enum ClassState {
     Allocated,
     Loaded,
@@ -20,12 +22,14 @@ pub enum ClassState {
     InitializationError,
 }
 
+#[derive(Debug)]
 pub enum ClassType {
     InstanceKlass,
     ObjectArrayKlass,
     TypeArrayKlass,
 }
 
+#[derive(Debug)]
 pub struct KlassMeta {
     state: Option<ClassState>,
     access_flags: U2,
@@ -35,6 +39,7 @@ pub struct KlassMeta {
     super_klass: Option<Box<InstanceKlass>>,
 }
 
+#[derive(Debug)]
 pub struct InstanceKlass {
     klass_meta: KlassMeta,
     class_loader: Rc<dyn ClassLoader>,
@@ -86,6 +91,7 @@ impl InstanceKlass {
     }
 }
 
+#[derive(Debug)]
 pub struct ArrayKlassMeta {
     klass_meta: KlassMeta,
     class_loader: Rc<dyn ClassLoader>,
@@ -116,6 +122,7 @@ impl ArrayKlassMeta {
     }
 }
 
+#[derive(Debug)]
 pub struct ObjectArrayKlass {
     array_klass_meta: ArrayKlassMeta,
     component_type: Rc<InstanceKlass>,
@@ -159,6 +166,7 @@ impl ObjectArrayKlass {
     }
 }
 
+#[derive(Debug)]
 pub struct TypeArrayKlass {
     array_klass_meta: ArrayKlassMeta,
     component_type: ValueType,

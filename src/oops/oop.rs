@@ -6,10 +6,12 @@ use super::klass::{InstanceKlass, Klass, KlassRef};
 
 pub type MirrorOop = Rc<MirrorOopDesc>;
 
+#[derive(Debug)]
 pub enum Oop {
     InstanceOopDesc(InstanceOopDesc),
 }
 
+#[derive(Debug)]
 pub enum OopType {
     InstanceOop,
     PrimitiveOop,
@@ -17,6 +19,7 @@ pub enum OopType {
     TypeArrayOop,
 }
 
+#[derive(Debug)]
 pub struct OopMeta<T> {
     oop_type: OopType,
     hash: jint,
@@ -39,11 +42,13 @@ impl<T> OopMeta<T> {
 
 pub type InstanceOop = Rc<InstanceOopDesc>;
 
+#[derive(Debug)]
 pub struct InstanceOopDesc {
     oop_desc: OopMeta<InstanceKlass>,
     instance_field_values: Vec<Oop>,
 }
 
+#[derive(Debug)]
 pub struct MirrorOopDesc {
     instance_oop: InstanceOop,
     mirror_target: Option<KlassRef>,

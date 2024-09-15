@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{fmt::Debug, rc::Rc};
 
 use crate::oops::{
     klass::{InstanceKlass, Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
@@ -12,7 +12,7 @@ pub struct ClassNotFoundError;
 
 type Result<T> = std::result::Result<T, ClassNotFoundError>;
 
-pub trait ClassLoader {
+pub trait ClassLoader: Debug {
     fn load_class(
         self: Rc<Self>,
         class_name: &str,
@@ -20,6 +20,7 @@ pub trait ClassLoader {
     ) -> Result<KlassRef>;
 }
 
+#[derive(Debug)]
 pub struct BootStrapClassLoader {
     parent: Option<Rc<dyn ClassLoader>>,
 }
@@ -73,7 +74,7 @@ impl BootStrapClassLoader {
         class_name: &str,
         class_path_manager: ClassPathManager,
     ) -> Result<KlassRef> {
-        if class_name.chars().nth(1).unwrap() == '[' {
+        if class_name.chars().nth(1).unwrap() == 'L' {
             self.do_load_object_array_class(1, &class_name[2..], class_path_manager)
         } else {
             Ok(self.do_load_type_array_class(1, class_name.chars().nth(1).unwrap()))
@@ -182,6 +183,7 @@ mod tests {
         let klass = class_loader
             .load_class(class_name, class_path_manager)
             .unwrap();
+        print!("{:?}", klass);
     }
 
     #[test]
@@ -204,10 +206,11 @@ mod tests {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
-        let class_name = "[[[Ljava/lang/String;";
+        let class_name = "[[[LString";
         let klass = class_loader
             .load_class(class_name, class_path_manager)
             .unwrap();
+        print!("{:?}", klass);
     }
 
     #[test]
@@ -221,5 +224,6 @@ mod tests {
         let klass = class_loader
             .load_class(class_name, class_path_manager)
             .unwrap();
+        print!("{:?}", klass);
     }
 }
