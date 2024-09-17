@@ -44,7 +44,7 @@ pub struct InstanceKlass {
     klass_meta: KlassMeta,
     class_loader: Rc<dyn ClassLoader>,
     java_loader: Option<MirrorOop>,
-    class_file: String,
+    class_file: ClassFile,
     source_file: String,
     signature: String,
     inner_class_attr: String,
@@ -62,10 +62,11 @@ pub struct InstanceKlass {
 
 impl InstanceKlass {
     pub fn new(class_file: ClassFile, class_loader: Rc<dyn ClassLoader>) -> Self {
+         
         Self {
             klass_meta: KlassMeta {
                 state: None,
-                access_flags: 0,
+                access_flags: class_file.access_flags,
                 name: String::new(),
                 ktype: ClassType::InstanceKlass,
                 java_mirror: None,
@@ -73,7 +74,7 @@ impl InstanceKlass {
             },
             class_loader: class_loader.clone(),
             java_loader: None,
-            class_file: String::new(),
+            class_file: class_file,
             source_file: String::new(),
             signature: String::new(),
             inner_class_attr: String::new(),
