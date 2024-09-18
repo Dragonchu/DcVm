@@ -1,6 +1,7 @@
 use std::{
     fs::{self},
     io::BufReader,
+    sync::{LazyLock, Mutex},
 };
 
 use crate::classfile::{class_file::ClassFile, class_file_parse::ClassFileParser};
@@ -18,6 +19,9 @@ impl std::fmt::Display for ClassNotFoundError {
         write!(f, "Class not found")
     }
 }
+
+pub static CLASS_PATH_MANGER: LazyLock<Mutex<ClassPathManager>> =
+    LazyLock::new(|| Mutex::new(ClassPathManager::new()));
 
 pub struct ClassPathManager {
     run_time_class_path: Vec<ClassPathEntry>,

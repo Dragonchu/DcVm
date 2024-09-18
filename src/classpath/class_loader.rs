@@ -5,7 +5,7 @@ use crate::oops::{
     reflection,
 };
 
-use super::class_path_manager::ClassPathManager;
+use super::class_path_manager::{ClassPathManager, CLASS_PATH_MANGER};
 
 #[derive(Debug, Clone)]
 pub struct ClassNotFoundError;
@@ -13,11 +13,7 @@ pub struct ClassNotFoundError;
 type Result<T> = std::result::Result<T, ClassNotFoundError>;
 
 pub trait ClassLoader: Debug {
-    fn load_class(
-        self: Rc<Self>,
-        class_name: &str,
-        class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef>;
+    fn load_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef>;
 }
 
 #[derive(Debug)]
@@ -26,15 +22,11 @@ pub struct BootStrapClassLoader {
 }
 
 impl ClassLoader for BootStrapClassLoader {
-    fn load_class(
-        self: Rc<Self>,
-        class_name: &str,
-        class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef> {
+    fn load_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
         if let Some(cl) = &self.parent {
-            ClassLoader::load_class(cl.to_owned(), class_name, class_path_manager)
+            ClassLoader::load_class(cl.to_owned(), class_name)
         } else {
-            self.do_load_class(class_name, class_path_manager)
+            self.do_load_class(class_name)
         }
     }
 }
@@ -44,51 +36,33 @@ impl BootStrapClassLoader {
         BootStrapClassLoader { parent: None }
     }
 
-    fn do_load_class(
-        self: Rc<Self>,
-        class_name: &str,
-        class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef> {
+    fn do_load_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
         if self.is_array_class(class_name) {
-            self.do_load_array_class(class_name, class_path_manager)
+            self.do_load_array_class(class_name)
         } else {
-            self.do_load_instance_class(class_name, class_path_manager)
+            self.do_load_instance_class(class_name)
         }
     }
 
-    fn do_load_array_class(
-        self: Rc<Self>,
-        class_name: &str,
-        class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef> {
+    fn do_load_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
         let dimension = self.calculate_arr_dimension(class_name);
         if dimension == 1 {
-            self.do_load_one_dimension_array_class(class_name, class_path_manager)
+            self.do_load_one_dimension_array_class(class_name)
         } else {
-            self.do_load_multi_dimension_array_class(class_name, class_path_manager)
+            self.do_load_multi_dimension_array_class(class_name)
         }
     }
 
-    fn do_load_one_dimension_array_class(
-        self: Rc<Self>,
-        class_name: &str,
-        class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef> {
+    fn do_load_one_dimension_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
         if class_name.chars().nth(1).unwrap() == 'L' {
-            self.do_load_object_array_class(1, &class_name[2..], class_path_manager)
+            self.do_load_object_array_class(1, &class_name[2..])
         } else {
             Ok(self.do_load_type_array_class(1, class_name.chars().nth(1).unwrap()))
         }
     }
 
-    fn do_load_multi_dimension_array_class(
-        self: Rc<Self>,
-        class_name: &str,
-        class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef> {
-        let down_type = self
-            .clone()
-            .load_class(&class_name[1..], class_path_manager)?;
+    fn do_load_multi_dimension_array_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+        let down_type = self.clone().load_class(&class_name[1..])?;
         if let Klass::ObjectArrayKlass(object_array_klass_ref) = down_type {
             Ok(Klass::ObjectArrayKlass(Rc::new(
                 ObjectArrayKlass::recurese_create(self.clone(), object_array_klass_ref.clone()),
@@ -106,11 +80,8 @@ impl BootStrapClassLoader {
         self: Rc<Self>,
         dimension: usize,
         down_type_name: &str,
-        class_path_manager: ClassPathManager,
     ) -> Result<KlassRef> {
-        let down_type = self
-            .clone()
-            .load_class(down_type_name, class_path_manager)?;
+        let down_type = self.clone().load_class(down_type_name)?;
         if let Klass::InstanceKlass(instance_klass_ref) = down_type {
             Ok(Klass::ObjectArrayKlass(Rc::new(ObjectArrayKlass::new(
                 self.clone(),
@@ -135,12 +106,8 @@ impl BootStrapClassLoader {
         )))
     }
 
-    fn do_load_instance_class(
-        self: Rc<Self>,
-        class_name: &str,
-        mut class_path_manager: ClassPathManager,
-    ) -> Result<KlassRef> {
-        if let Ok(class_file) = class_path_manager.search_class(class_name) {
+    fn do_load_instance_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
+        if let Ok(class_file) = CLASS_PATH_MANGER.lock().unwrap().search_class(class_name) {
             Ok(Klass::InstanceKlass(Rc::new(InstanceKlass::new(
                 class_file,
                 self.clone(),
@@ -176,13 +143,11 @@ mod tests {
     fn test_bootstrap_class_loader() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = ClassPathManager::new();
+        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "String";
-        let klass = class_loader
-            .load_class(class_name, class_path_manager)
-            .unwrap();
+        let klass = class_loader.load_class(class_name).unwrap();
         print!("{:?}", klass);
     }
 
@@ -190,26 +155,22 @@ mod tests {
     fn test_bootstrap_class_loader_array() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = ClassPathManager::new();
+        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "[Ljava/lang/String;";
-        let klass = class_loader
-            .load_class(class_name, class_path_manager)
-            .unwrap();
+        let klass = class_loader.load_class(class_name).unwrap();
     }
 
     #[test]
     fn test_bootstrap_class_loader_multi_array() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = ClassPathManager::new();
+        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "[[[LString";
-        let klass = class_loader
-            .load_class(class_name, class_path_manager)
-            .unwrap();
+        let klass = class_loader.load_class(class_name).unwrap();
         print!("{:?}", klass);
     }
 
@@ -217,13 +178,11 @@ mod tests {
     fn test_bootstrap_class_loader_primitive_array() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = ClassPathManager::new();
+        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "[I";
-        let klass = class_loader
-            .load_class(class_name, class_path_manager)
-            .unwrap();
+        let klass = class_loader.load_class(class_name).unwrap();
         print!("{:?}", klass);
     }
 }
