@@ -1,6 +1,19 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{classfile::{class_file::ClassFile, constant_pool::{require_constant, CpInfo}}, classpath::class_loader::ClassLoader, common::ACC_FINAL, oops::{field::Field, klass::klass::ClassState, oop::{MirrorOop, Oop}}};
+use crate::{
+    classfile::{
+        class_file::ClassFile,
+        constant_pool::{require_constant, CpInfo},
+    },
+    classpath::class_loader::ClassLoader,
+    common::ACC_FINAL,
+    oops::{
+        field::Field,
+        klass::klass::ClassState,
+        oop::{MirrorOop, Oop},
+        reflection::FieldId,
+    },
+};
 
 use super::klass::{ClassType, Klass, KlassMeta};
 
@@ -58,21 +71,35 @@ impl InstanceKlassRef {
             klass.instance_fields.extend(super_class_fields);
             instance_field_index += super_class.instance_field_nums;
         }
-        let pool = &klass.class_file.constant_pool;
         let mut static_field_index = 0;
-        for field_info_ref in &klass.class_file.fields {
-            let mut field = Field::new(self.layout.clone(), field_info_ref.clone());
-            field.link_field(pool);
+        let fields = klass.class_file.fields.clone();
+        for field_info_ref in fields{
+            let field_ref = Field::new(self.layout.clone(), field_info_ref.clone());
+            let mut field = field_ref.borrow_mut();
+            field.link_field();
+            let identity = field.make_identity();
+            let field_id = FieldId {
+                offset: static_field_index,
+                field: field_ref.clone(),
+            };
             if field.is_static() {
-
+                static_field_index += 1;
+                klass.static_fields.insert(identity, field_id);
             } else {
+                instance_field_index += 1;
+                klass.instance_fields.insert(identity, field_id);
             }
         }
+        klass.static_field_nums = static_field_index;
+        klass.instance_field_nums = instance_field_index;
     }
 
     fn require_instance_class(&self, class_info_index: u16) -> InstanceKlassRef {
         let klass = self.layout.borrow_mut();
-        let class_name = klass.class_file.constant_pool.get_class_name(class_info_index as usize);
+        let class_name = klass
+            .class_file
+            .constant_pool
+            .get_class_name(class_info_index as usize);
         let class_loader = klass.class_loader.clone();
         let class_ref = class_loader.load_class(&class_name);
         match class_ref {
@@ -87,10 +114,10 @@ impl InstanceKlassRef {
 
 #[derive(Debug)]
 pub struct InstanceKlass {
-    klass_meta: KlassMeta,
+    pub klass_meta: KlassMeta,
     class_loader: Rc<dyn ClassLoader>,
     java_loader: Option<MirrorOop>,
-    class_file: Box<ClassFile>,
+    pub class_file: Box<ClassFile>,
     source_file: String,
     signature: String,
     inner_class_attr: String,
@@ -101,8 +128,8 @@ pub struct InstanceKlass {
     instance_field_nums: usize,
     all_methods: HashMap<String, String>,
     vtable: HashMap<String, String>,
-    static_fields: HashMap<String, String>,
-    instance_fields: HashMap<String, String>,
+    static_fields: HashMap<String, FieldId>,
+    instance_fields: HashMap<String, FieldId>,
     static_field_values: Vec<Oop>,
     interfaces: HashMap<String, Rc<InstanceKlass>>,
 }
@@ -139,6 +166,6 @@ impl InstanceKlass {
     }
 
     pub fn is_final(&self) -> bool {
-        self.klass_meta.access_flags & ACC_FINAL == ACC_FINAL 
+        self.klass_meta.access_flags & ACC_FINAL == ACC_FINAL
     }
 }

@@ -1,4 +1,8 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::common::ValueType;
+
+use super::field::Field;
 
 pub(crate) fn primitive_type_to_value_type_no_wrap(c: char) -> ValueType {
     match c {
@@ -13,4 +17,10 @@ pub(crate) fn primitive_type_to_value_type_no_wrap(c: char) -> ValueType {
         'Z' => ValueType::Boolean,
         _ => panic!("Invalid primitive type: {}", c),
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldId{
+    pub offset: usize,
+    pub field: Rc<RefCell<Field>>,
 }

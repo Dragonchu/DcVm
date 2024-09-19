@@ -12,6 +12,7 @@ use crate::{
 
 use super::klass::{instance_klass::InstanceKlass, klass::KlassRef};
 
+#[derive(Debug)]
 pub struct Field {
     klass: Option<Rc<RefCell<InstanceKlass>>>,
     name: Option<String>,
@@ -31,8 +32,8 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn new(klass: Rc<RefCell<InstanceKlass>>, field_info: Rc<FieldInfo>) -> Field {
-        Self {
+    pub fn new(klass: Rc<RefCell<InstanceKlass>>, field_info: Rc<FieldInfo>) -> Rc<RefCell<Field>> {
+        Rc::new(RefCell::new(Self {
             linked: false,
             access_flag: field_info.access_flags,
             klass: Some(klass),
@@ -44,24 +45,31 @@ impl Field {
             descriptor: None,
             signature: None,
             value_type: None,
-        }
+        }))
     }
 
-    pub fn link_field(&mut self, pool: &ConstantPool) {
+    pub fn link_field(&mut self) {
         if self.linked == true {
             return;
         }
-        let field_info = self.field_info.as_ref().unwrap();
-        let name = pool.get_utf8(field_info.name_index as usize);
-        let desc = pool.get_utf8(field_info.descriptor_index as usize);
-        self.name = Some(name);
-        self.descriptor = Some(desc);
-        self.link_attribute(pool);
+        self.link_name_and_descriptor();
+        self.link_attribute();
         self.post_link_value_type();
         self.linked = true;
     }
 
-    fn link_attribute(&mut self, pool: &ConstantPool) {
+    fn link_name_and_descriptor(&mut self) {
+        let field_info = self.field_info.as_ref().unwrap();
+        let pool = self.klass.as_ref().unwrap().borrow().class_file.constant_pool.clone();
+        let name = pool.get_utf8(field_info.name_index as usize);
+        let desc = pool.get_utf8(field_info.descriptor_index as usize);
+        self.name = Some(name);
+        self.descriptor = Some(desc);
+    }
+
+    fn link_attribute(&mut self) {
+        let klass = self.klass.as_ref().unwrap().borrow_mut();
+        let pool = klass.class_file.constant_pool.clone();
         let field_info = self.field_info.as_ref().unwrap();
         for (_, attr) in field_info.attributes.iter().enumerate() {
             match attr {
@@ -99,5 +107,17 @@ impl Field {
 
     pub fn is_static(&self) -> bool {
         self.access_flag & ACC_STATIC == ACC_STATIC
+    }
+
+    pub fn make_identity(&mut self) -> String {
+        let belong_to = self.klass.as_mut().unwrap().borrow();
+        let mut identity = String::new();
+        let class_name: &String = &belong_to.klass_meta.name;
+        identity.push_str(class_name);
+        identity.push_str(":");
+        identity.push_str(self.name.as_ref().unwrap());
+        identity.push_str(":");
+        identity.push_str(self.descriptor.as_ref().unwrap());
+        identity
     }
 }

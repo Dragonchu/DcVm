@@ -3,7 +3,7 @@ use std::fmt;
 
 use super::{types::{U1, U2, U4}};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConstantPool {
     pool: Vec<CpInfo>,
 }
@@ -37,6 +37,7 @@ impl ConstantPool {
     }
 }
 
+#[derive(Clone)]
 pub enum CpInfo {
     Class {
         tag: U1,
