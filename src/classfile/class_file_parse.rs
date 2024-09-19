@@ -1,6 +1,7 @@
 use std::{
     fs::File,
-    io::{BufReader, Read}, rc::Rc,
+    io::{BufReader, Read},
+    rc::Rc,
 };
 
 use zip::read::ZipFile;
@@ -9,10 +10,9 @@ use crate::classfile::attribute_info::{Annotation, ElementValueItem};
 
 use super::{
     attribute_info::{
-        AttributeInfo, CodeAttribute, ConstantValueAttribute, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath, VerificationTypeInfo
-    },
-    class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
-    types::{U1, U2, U4},
+        AttributeInfo, CodeAttribute, ConstantValueAttribute, ElementValue, StackMapFrame,
+        TargetInfo, TypeAnnotation, TypePath, VerificationTypeInfo,
+    }, class_file::{ClassFile, ConstantInfoTag, FieldInfo, MethodInfo}, constant_pool::{ConstantPool, CpInfo}, types::{U1, U2, U4}
 };
 
 enum ClassFileStream<'a> {
@@ -154,7 +154,7 @@ impl<'a> ClassFileParser<'a> {
             minor_version,
             major_version,
             constant_pool_count,
-            constant_pool,
+            ConstantPool::new(constant_pool),
             access_flags,
             this_class,
             super_class,
@@ -318,20 +318,20 @@ impl<'a> ClassFileParser<'a> {
         interfaces
     }
 
-    fn parse_fields(&mut self, fields_count: U2, const_pool: &Vec<CpInfo>) -> Vec<FieldInfo> {
-        let mut fields: Vec<FieldInfo> = Vec::new();
+    fn parse_fields(&mut self, fields_count: U2, const_pool: &Vec<CpInfo>) -> Vec<Rc<FieldInfo>> {
+        let mut fields: Vec<Rc<FieldInfo>> = Vec::new();
         for _ in 0..fields_count {
             let access_flags = self.class_file_stream.read_u2();
             let name_index = self.class_file_stream.read_u2();
             let descriptor_index = self.class_file_stream.read_u2();
             let attributes_count = self.class_file_stream.read_u2();
             let attributes = self.parse_attributes(attributes_count, const_pool);
-            fields.push(FieldInfo::new(
+            fields.push(Rc::new(FieldInfo::new(
                 access_flags,
                 name_index,
                 descriptor_index,
                 attributes,
-            ));
+            )));
         }
         fields
     }

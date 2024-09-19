@@ -1,19 +1,19 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     classfile::{
         attribute_info::{self, ConstantValueAttribute},
-        class_file::{CpInfo, FieldInfo},
-        constant_pool,
+        class_file::FieldInfo,
+        constant_pool::{self, ConstantPool, CpInfo},
         types::U2,
     },
-    common::ValueType,
+    common::{ValueType, ACC_STATIC},
 };
 
-use super::klass::{InstanceKlass, Klass, KlassRef};
+use super::klass::{instance_klass::InstanceKlass, klass::KlassRef};
 
 pub struct Field {
-    klass: Option<Rc<InstanceKlass>>,
+    klass: Option<Rc<RefCell<InstanceKlass>>>,
     name: Option<String>,
     descriptor: Option<String>,
     signature: Option<String>,
@@ -31,7 +31,7 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn new(klass: Rc<InstanceKlass>, field_info: Rc<FieldInfo>) -> Field {
+    pub fn new(klass: Rc<RefCell<InstanceKlass>>, field_info: Rc<FieldInfo>) -> Field {
         Self {
             linked: false,
             access_flag: field_info.access_flags,
@@ -47,19 +47,21 @@ impl Field {
         }
     }
 
-    pub fn link_field(&mut self, pool: &Vec<CpInfo>) {
+    pub fn link_field(&mut self, pool: &ConstantPool) {
         if self.linked == true {
             return;
         }
         let field_info = self.field_info.as_ref().unwrap();
-        let name = constant_pool::require_constant_utf8(pool, field_info.name_index as usize);
-        let desc = constant_pool::require_constant_utf8(pool, field_info.descriptor_index as usize);
+        let name = pool.get_utf8(field_info.name_index as usize);
+        let desc = pool.get_utf8(field_info.descriptor_index as usize);
         self.name = Some(name);
         self.descriptor = Some(desc);
         self.link_attribute(pool);
+        self.post_link_value_type();
+        self.linked = true;
     }
 
-    fn link_attribute(&mut self, pool: &Vec<CpInfo>) {
+    fn link_attribute(&mut self, pool: &ConstantPool) {
         let field_info = self.field_info.as_ref().unwrap();
         for (_, attr) in field_info.attributes.iter().enumerate() {
             match attr {
@@ -71,8 +73,7 @@ impl Field {
                     attribute_name_index: _,
                     signature_index,
                 } => {
-                    let signature =
-                        constant_pool::require_constant_utf8(pool, *signature_index as usize);
+                    let signature = pool.get_utf8(*signature_index as usize);
                     self.signature = Some(signature);
                 }
                 _ => {}
@@ -82,6 +83,21 @@ impl Field {
 
     fn post_link_value_type(&mut self) {
         let desc = self.descriptor.as_ref().unwrap();
-        let value_type = ValueType::from(desc);
+        let value_type = ValueType::try_from(desc.chars().nth(0).unwrap()).unwrap();
+        match value_type {
+            ValueType::Object => {
+                let class_name = &desc[1..desc.len() - 1];
+                self.value_class_type_name = Some(class_name.to_string());
+            }
+            ValueType::Array => {
+                let class_name = &desc;
+                self.value_class_type_name = Some(class_name.to_string());
+            }
+            _ => {}
+        }
+    }
+
+    pub fn is_static(&self) -> bool {
+        self.access_flag & ACC_STATIC == ACC_STATIC
     }
 }

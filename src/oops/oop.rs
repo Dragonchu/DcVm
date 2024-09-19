@@ -2,7 +2,8 @@ use std::rc::Rc;
 
 use crate::{common::ValueType, jni::jni_md::jint};
 
-use super::klass::{InstanceKlass, Klass, KlassRef};
+use super::klass::{instance_klass::InstanceKlass, klass::KlassRef};
+
 
 pub type MirrorOop = Rc<MirrorOopDesc>;
 

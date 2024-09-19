@@ -2,10 +2,8 @@ use std::rc::Rc;
 
 use crate::{
     classfile::types::{U1, U2, U4},
-    common::ATTRIBUTE_MAPPING,
 };
 
-use super::class_file::CpInfo;
 
 #[derive(Debug)]
 pub enum AttributeInfo {
@@ -302,21 +300,4 @@ pub struct TypePath {
     pub path_length: U1,
     //type_path_kind, type_argument_index
     pub path: Vec<(U1, U1)>,
-}
-
-pub fn to_attribute_tag(attribute_name_index: U2, constant_pool: &Vec<CpInfo>) -> U2 {
-    let cp_info = constant_pool
-        .get(attribute_name_index as usize)
-        .expect("Invalid constant pool index");
-    if let CpInfo::Utf8 { tag, length, bytes } = cp_info {
-        let attribute_name = String::from_utf8_lossy(bytes);
-        return ATTRIBUTE_MAPPING
-            .lock()
-            .unwrap()
-            .get(attribute_name.as_ref())
-            .cloned()
-            .expect("Invalid attribute name");
-    } else {
-        panic!("Invalid constant pool index");
-    }
 }

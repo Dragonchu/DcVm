@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    convert::Infallible,
     sync::{LazyLock, Mutex},
 };
 
@@ -20,10 +21,27 @@ pub enum ValueType {
     Array,
 }
 
-impl TryFrom<char> for ValueType {
-    type Error = std::convert::Infallible;
+#[derive(Debug)]
+pub struct ValueTypeError(String);
 
-    fn try_from(value: char) -> std::result::Result<ValueType, Infallible> {
+impl std::fmt::Display for ValueTypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Invalid primitive type: {}", self.0)
+    }
+}
+
+impl std::error::Error for ValueTypeError {}
+
+impl From<String> for ValueTypeError {
+    fn from(value: String) -> ValueTypeError {
+        ValueTypeError(value)
+    }
+}
+
+impl TryFrom<char> for ValueType {
+    type Error = ValueTypeError;
+
+    fn try_from(value: char) -> std::result::Result<ValueType, ValueTypeError> {
         match value {
             'V' => Ok(ValueType::Void),
             'B' => Ok(ValueType::Byte),
@@ -36,10 +54,9 @@ impl TryFrom<char> for ValueType {
             'D' => Ok(ValueType::Double),
             'L' => Ok(ValueType::Object),
             '[' => Ok(ValueType::Array),
-            _ => std::convert::Infallible,
+            _ => Err(String::from("Invalid primitive type").into()),
         }
     }
-    
 }
 
 pub const ACC_PUBLIC: u16 = 0x0001;

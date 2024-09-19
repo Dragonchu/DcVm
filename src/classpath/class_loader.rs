@@ -1,7 +1,10 @@
-use std::{fmt::Debug, rc::Rc};
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 use crate::oops::{
-    klass::{InstanceKlass, Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
+    klass::{
+        instance_klass::{InstanceKlass, InstanceKlassRef},
+        klass::{Klass, KlassRef, ObjectArrayKlass, TypeArrayKlass},
+    },
     reflection,
 };
 
@@ -108,10 +111,9 @@ impl BootStrapClassLoader {
 
     fn do_load_instance_class(self: Rc<Self>, class_name: &str) -> Result<KlassRef> {
         if let Ok(class_file) = CLASS_PATH_MANGER.lock().unwrap().search_class(class_name) {
-            Ok(Klass::InstanceKlass(Rc::new(InstanceKlass::new(
-                class_file,
-                self.clone(),
-            ))))
+            Ok(Klass::InstanceKlass(InstanceKlassRef {
+                layout: InstanceKlass::new(Box::new(class_file), self.clone()),
+            }))
         } else {
             Err(ClassNotFoundError)
         }
@@ -146,7 +148,7 @@ mod tests {
         let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
         class_path_manager.add_class_path(d.to_str().unwrap());
         let class_loader = Rc::new(BootStrapClassLoader::new());
-        let class_name = "String";
+        let class_name = "Main";
         let klass = class_loader.load_class(class_name).unwrap();
         print!("{:?}", klass);
     }
