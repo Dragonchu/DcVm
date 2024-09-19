@@ -93,6 +93,7 @@ impl InstanceKlass {
             all_methods: HashMap::new(),
             vtable: HashMap::new(),
             static_fields: HashMap::new(),
+            instance_fields: HashMap::new(),
             static_field_values: Vec::new(),
             interfaces: HashMap::new(),
         }

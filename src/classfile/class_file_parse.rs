@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read}, rc::Rc,
 };
 
 use zip::read::ZipFile;
@@ -9,8 +9,7 @@ use crate::classfile::attribute_info::{Annotation, ElementValueItem};
 
 use super::{
     attribute_info::{
-        AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath,
-        VerificationTypeInfo,
+        AttributeInfo, CodeAttribute, ConstantValueAttribute, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath, VerificationTypeInfo
     },
     class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
     types::{U1, U2, U4},
@@ -179,10 +178,10 @@ impl<'a> ClassFileParser<'a> {
                 Err(_) => {
                     println!("parsed constant_pool count: \n{:?}", constant_pool.len());
                     for (i, cp) in constant_pool.iter().enumerate() {
-                        println!("{}: {:?}", i+1, cp);
+                        println!("{}: {:?}", i + 1, cp);
                     }
                     panic!("Invalid tag")
-                },
+                }
             };
             match tag {
                 ConstantInfoTag::ConstantUtf8 => {
@@ -679,11 +678,11 @@ impl<'a> ClassFileParser<'a> {
         attribute_length: U4,
     ) -> AttributeInfo {
         let constant_value_index = self.class_file_stream.read_u2();
-        AttributeInfo::ConstantValue {
+        AttributeInfo::ConstantValue(Rc::new(ConstantValueAttribute {
             attribute_name_index,
             attribute_length,
             constant_value_index,
-        }
+        }))
     }
 
     fn read_code_attribute(
@@ -700,7 +699,7 @@ impl<'a> ClassFileParser<'a> {
         let exception_table = self.parse_exception_table(exception_table_length);
         let attributes_count = self.class_file_stream.read_u2();
         let attributes = self.parse_attributes(attributes_count, constant_pool);
-        AttributeInfo::Code {
+        AttributeInfo::Code(Rc::new(CodeAttribute {
             attribute_name_index,
             attribute_length,
             max_stack,
@@ -711,7 +710,7 @@ impl<'a> ClassFileParser<'a> {
             exception_table,
             attributes_count,
             attributes,
-        }
+        }))
     }
 
     fn parse_exception_table(&mut self, exception_table_length: U2) -> Vec<(U2, U2, U2, U2)> {

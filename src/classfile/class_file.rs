@@ -142,11 +142,11 @@ impl TryFrom<u8> for ConstantInfoTag {
 
 #[derive(Debug)]
 pub struct FieldInfo {
-    access_flags: U2,
-    name_index: U2,
-    descriptor_index: U2,
-    attributes_count: U2,
-    attributes: Vec<AttributeInfo>,
+    pub access_flags: U2,
+    pub name_index: U2,
+    pub descriptor_index: U2,
+    pub attributes_count: U2,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl FieldInfo {

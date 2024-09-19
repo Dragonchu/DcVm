@@ -1,25 +1,13 @@
+use std::rc::Rc;
+
 use crate::classfile::types::{U1, U2, U4};
+
+use super::class_file::CpInfo;
 
 #[derive(Debug)]
 pub enum AttributeInfo {
-    ConstantValue {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        constant_value_index: U2,
-    },
-    Code {
-        attribute_name_index: U2,
-        attribute_length: U4,
-        max_stack: U2,
-        max_locals: U2,
-        code_length: U4,
-        code: Vec<U1>,
-        exception_table_length: U2,
-        //start_pc, end_pc, handler_pc, catch_type
-        exception_table: Vec<(U2, U2, U2, U2)>,
-        attributes_count: U2,
-        attributes: Vec<AttributeInfo>,
-    },
+    ConstantValue(Rc<ConstantValueAttribute>),
+    Code(Rc<CodeAttribute>),
     StackMapTable {
         attribute_name_index: U2,
         attribute_length: U4,
@@ -146,6 +134,28 @@ pub enum AttributeInfo {
         //name_index, access_flags
         parameters: Vec<(U2, U2)>,
     },
+}
+
+#[derive(Debug)]
+pub struct ConstantValueAttribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub constant_value_index: U2,
+}
+
+#[derive(Debug)]
+pub struct CodeAttribute {
+    pub attribute_name_index: U2,
+    pub attribute_length: U4,
+    pub max_stack: U2,
+    pub max_locals: U2,
+    pub code_length: U4,
+    pub code: Vec<U1>,
+    pub exception_table_length: U2,
+    //start_pc, end_pc, handler_pc, catch_type
+    pub exception_table: Vec<(U2, U2, U2, U2)>,
+    pub attributes_count: U2,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 #[derive(Debug)]
@@ -289,4 +299,11 @@ pub struct TypePath {
     pub path_length: U1,
     //type_path_kind, type_argument_index
     pub path: Vec<(U1, U1)>,
+}
+
+pub fn to_attribute_tag(attribute_name_index: U2, constant_pool: &Vec<CpInfo>) {
+    let cp_info = constant_pool.get(attribute_name_index as usize).expect("Invalid constant pool index");
+    if let CpInfo::Utf8 { tag, length, bytes } = cp_info {
+        
+    }
 }
