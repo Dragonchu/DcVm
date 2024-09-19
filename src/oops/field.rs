@@ -25,17 +25,17 @@ pub struct Field {
     value_class_type: Option<KlassRef>,
     value_class_type_name: Option<String>,
 
-    field_info: Option<Rc<FieldInfo>>,
+    field_info: Option<Rc<RefCell<FieldInfo>>>,
     constant_attr: Option<Rc<ConstantValueAttribute>>,
 
     linked: bool,
 }
 
 impl Field {
-    pub fn new(klass: Rc<RefCell<InstanceKlass>>, field_info: Rc<FieldInfo>) -> Rc<RefCell<Field>> {
+    pub fn new(klass: Rc<RefCell<InstanceKlass>>, field_info: Rc<RefCell<FieldInfo>>) -> Rc<RefCell<Field>> {
         Rc::new(RefCell::new(Self {
             linked: false,
-            access_flag: field_info.access_flags,
+            access_flag: field_info.borrow().access_flags,
             klass: Some(klass),
             field_info: Some(field_info.clone()),
             constant_attr: None,

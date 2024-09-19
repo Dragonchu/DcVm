@@ -1,5 +1,5 @@
 use core::str;
-use std::{fmt, rc::Rc};
+use std::{cell::RefCell, fmt, rc::Rc};
 
 use crate::classfile::types::{U1, U2, U4};
 
@@ -122,7 +122,7 @@ pub struct ClassFile {
     interfaces_count: U2,
     interfaces: Vec<U2>,
     pub fields_count: U2,
-    pub fields: Vec<Rc<FieldInfo>>,
+    pub fields: Vec<Rc<RefCell<FieldInfo>>>,
     methods_count: U2,
     methods: Vec<MethodInfo>,
     attributes_count: U2,

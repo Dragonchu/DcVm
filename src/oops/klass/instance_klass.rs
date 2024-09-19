@@ -62,17 +62,19 @@ impl InstanceKlassRef {
         klass.klass_meta.super_klass = Some(super_class_ref.clone());
     }
 
-    fn link_fields(&self) {
+    fn link_fields(&mut self) {
         let mut klass = self.layout.borrow_mut();
         let mut instance_field_index = 0;
         if let Some(super_class_ref) = klass.klass_meta.super_klass.clone() {
-            let mut super_class = super_class_ref.layout.borrow_mut();
+            let super_class = super_class_ref.layout.borrow_mut();
             let super_class_fields = super_class.instance_fields.clone();
             klass.instance_fields.extend(super_class_fields);
             instance_field_index += super_class.instance_field_nums;
         }
         let mut static_field_index = 0;
-        let fields = klass.class_file.fields.clone();
+        let fields = &mut klass.class_file.fields;
+        let static_fields = &mut klass.static_fields;
+        let instance_fields = &mut klass.instance_fields;
         for field_info_ref in fields{
             let field_ref = Field::new(self.layout.clone(), field_info_ref.clone());
             let mut field = field_ref.borrow_mut();
@@ -84,10 +86,10 @@ impl InstanceKlassRef {
             };
             if field.is_static() {
                 static_field_index += 1;
-                klass.static_fields.insert(identity, field_id);
+                static_fields.insert(identity, field_id);
             } else {
                 instance_field_index += 1;
-                klass.instance_fields.insert(identity, field_id);
+                instance_fields.insert(identity, field_id);
             }
         }
         klass.static_field_nums = static_field_index;
