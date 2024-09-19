@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     classfile::{
-        attribute_info::ConstantValueAttribute,
+        attribute_info::{self, ConstantValueAttribute},
         class_file::{CpInfo, FieldInfo},
         constant_pool,
         types::U2,
@@ -52,20 +52,36 @@ impl Field {
             return;
         }
         let field_info = self.field_info.as_ref().unwrap();
-        let name = constant_pool::require_constant_utf8(
-            pool,
-            field_info.name_index as usize,
-        );
+        let name = constant_pool::require_constant_utf8(pool, field_info.name_index as usize);
         let desc = constant_pool::require_constant_utf8(pool, field_info.descriptor_index as usize);
         self.name = Some(name);
         self.descriptor = Some(desc);
-
+        self.link_attribute(pool);
     }
 
     fn link_attribute(&mut self, pool: &Vec<CpInfo>) {
         let field_info = self.field_info.as_ref().unwrap();
-        for (index, attr) in field_info.attributes.iter().enumerate() {
-            
+        for (_, attr) in field_info.attributes.iter().enumerate() {
+            match attr {
+                attribute_info::AttributeInfo::ConstantValue(attr) => {
+                    self.constant_attr = Some(attr.clone());
+                }
+                attribute_info::AttributeInfo::Signature {
+                    attribute_length: _,
+                    attribute_name_index: _,
+                    signature_index,
+                } => {
+                    let signature =
+                        constant_pool::require_constant_utf8(pool, *signature_index as usize);
+                    self.signature = Some(signature);
+                }
+                _ => {}
+            }
         }
+    }
+
+    fn post_link_value_type(&mut self) {
+        let desc = self.descriptor.as_ref().unwrap();
+        let value_type = ValueType::from(desc);
     }
 }

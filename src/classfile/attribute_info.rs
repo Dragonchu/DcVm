@@ -1,6 +1,9 @@
 use std::rc::Rc;
 
-use crate::classfile::types::{U1, U2, U4};
+use crate::{
+    classfile::types::{U1, U2, U4},
+    common::ATTRIBUTE_MAPPING,
+};
 
 use super::class_file::CpInfo;
 
@@ -165,12 +168,12 @@ pub enum StackMapFrame {
     },
     SameLocals1StackItemFrame {
         frame_type: U1,
-        stack: [VerificationTypeInfo;1],
+        stack: [VerificationTypeInfo; 1],
     },
     SameLocals1StackItemFrameExtended {
         frame_type: U1,
         offset_delta: U2,
-        stack: [VerificationTypeInfo;1],
+        stack: [VerificationTypeInfo; 1],
     },
     ChopFrame {
         frame_type: U1,
@@ -301,9 +304,19 @@ pub struct TypePath {
     pub path: Vec<(U1, U1)>,
 }
 
-pub fn to_attribute_tag(attribute_name_index: U2, constant_pool: &Vec<CpInfo>) {
-    let cp_info = constant_pool.get(attribute_name_index as usize).expect("Invalid constant pool index");
+pub fn to_attribute_tag(attribute_name_index: U2, constant_pool: &Vec<CpInfo>) -> U2 {
+    let cp_info = constant_pool
+        .get(attribute_name_index as usize)
+        .expect("Invalid constant pool index");
     if let CpInfo::Utf8 { tag, length, bytes } = cp_info {
-        
+        let attribute_name = String::from_utf8_lossy(bytes);
+        return ATTRIBUTE_MAPPING
+            .lock()
+            .unwrap()
+            .get(attribute_name.as_ref())
+            .cloned()
+            .expect("Invalid attribute name");
+    } else {
+        panic!("Invalid constant pool index");
     }
 }

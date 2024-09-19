@@ -20,6 +20,28 @@ pub enum ValueType {
     Array,
 }
 
+impl TryFrom<char> for ValueType {
+    type Error = std::convert::Infallible;
+
+    fn try_from(value: char) -> std::result::Result<ValueType, Infallible> {
+        match value {
+            'V' => Ok(ValueType::Void),
+            'B' => Ok(ValueType::Byte),
+            'Z' => Ok(ValueType::Boolean),
+            'C' => Ok(ValueType::Char),
+            'S' => Ok(ValueType::Short),
+            'I' => Ok(ValueType::Int),
+            'F' => Ok(ValueType::Float),
+            'J' => Ok(ValueType::Long),
+            'D' => Ok(ValueType::Double),
+            'L' => Ok(ValueType::Object),
+            '[' => Ok(ValueType::Array),
+            _ => std::convert::Infallible,
+        }
+    }
+    
+}
+
 pub const ACC_PUBLIC: u16 = 0x0001;
 pub const ACC_PRIVATE: u16 = 0x0002;
 pub const ACC_PROTECTED: u16 = 0x0004;
