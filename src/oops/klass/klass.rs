@@ -17,7 +17,7 @@ use super::{
 pub type KlassRef = Klass;
 #[derive(Debug)]
 pub enum Klass {
-    InstanceKlass(InstanceKlassRef),
+    InstanceKlass(Rc<InstanceKlass>),
     ObjectArrayKlass(Rc<ObjectArrayKlass>),
     TypeArrayKlass(Rc<TypeArrayKlass>),
 }
@@ -40,12 +40,12 @@ pub enum ClassType {
 
 #[derive(Debug)]
 pub struct KlassMeta {
-    pub state: Option<ClassState>,
+    pub state: ClassState,
     pub access_flags: U2,
     pub name: String,
     pub ktype: ClassType,
     pub java_mirror: Option<MirrorOop>,
-    pub super_klass: Option<InstanceKlassRef>,
+    pub super_klass: Option<Box<InstanceKlass>>,
 }
 
 #[derive(Debug)]

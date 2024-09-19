@@ -75,7 +75,7 @@ impl InstanceKlassRef {
         let fields = &mut klass.class_file.fields;
         let static_fields = &mut klass.static_fields;
         let instance_fields = &mut klass.instance_fields;
-        for field_info_ref in fields{
+        for field_info_ref in fields {
             let field_ref = Field::new(self.layout.clone(), field_info_ref.clone());
             let mut field = field_ref.borrow_mut();
             field.link_field();
@@ -95,23 +95,6 @@ impl InstanceKlassRef {
         klass.static_field_nums = static_field_index;
         klass.instance_field_nums = instance_field_index;
     }
-
-    fn require_instance_class(&self, class_info_index: u16) -> InstanceKlassRef {
-        let klass = self.layout.borrow_mut();
-        let class_name = klass
-            .class_file
-            .constant_pool
-            .get_class_name(class_info_index as usize);
-        let class_loader = klass.class_loader.clone();
-        let class_ref = class_loader.load_class(&class_name);
-        match class_ref {
-            Ok(klass) => match klass {
-                Klass::InstanceKlass(instance_klass_ref) => instance_klass_ref,
-                _ => panic!("Class not found"),
-            },
-            Err(_) => panic!("Class not found"),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -126,8 +109,6 @@ pub struct InstanceKlass {
     enclosing_method_attr: String,
     boot_strap_methods_attr: String,
     runtime_constant_pool: String,
-    static_field_nums: usize,
-    instance_field_nums: usize,
     all_methods: HashMap<String, String>,
     vtable: HashMap<String, String>,
     static_fields: HashMap<String, FieldId>,
@@ -137,7 +118,51 @@ pub struct InstanceKlass {
 }
 
 impl InstanceKlass {
-    pub fn new(class_file: Box<ClassFile>, class_loader: Rc<dyn ClassLoader>) -> Rc<RefCell<Self>> {
+    pub fn new(class_file: &ClassFile, class_loader: Rc<dyn ClassLoader>) -> Rc<RefCell<Self>> {
+        let access_flags = class_file.access_flags;
+        let pool = &class_file.constant_pool;
+        let class_name = pool.get_class_name(class_file.this_class as usize);
+        let super_klass = if class_file.super_class == 0 {
+            if class_name != "java/lang/Object" {
+                panic!("Super class not found");
+            }
+            None
+        } else {
+            let super_class_name = pool.get_class_name(class_file.super_class as usize);
+            let class_ref = class_loader.load_class(&super_class_name);
+            if let Ok(Klass::InstanceKlass(super_class)) = class_ref {
+                if super_class.is_final() {
+                    panic!("Super class is final");
+                }
+                Some(super_class)
+            } else {
+                panic!("Super class not found");
+            }
+        };
+        let instance_fields = if let Some(super_klass) = super_klass {
+            super_klass.instance_fields.clone()
+        } else {
+            HashMap::new()
+        };
+        for field_info in class_file.fields {
+            let field = Field::new(&field_info);
+            field.link_field();
+            let identity = field.make_identity();
+            let field_id = FieldId {
+                offset: static_field_index,
+                field: field_ref.clone(),
+            };
+            if field.is_static() {
+                static_field_index += 1;
+                static_fields.insert(identity, field_id);
+            } else {
+                instance_field_index += 1;
+                instance_fields.insert(identity, field_id);
+            }
+        }
+        klass.static_field_nums = static_field_index;
+        klass.instance_field_nums = instance_field_index; 
+
         Rc::new(RefCell::new(Self {
             klass_meta: KlassMeta {
                 state: None,
@@ -170,4 +195,21 @@ impl InstanceKlass {
     pub fn is_final(&self) -> bool {
         self.klass_meta.access_flags & ACC_FINAL == ACC_FINAL
     }
+
 }
+
+    fn require_instance_class(, class_info_index: u16) -> InstanceKlassRef {
+        let class_name = klass
+            .class_file
+            .constant_pool
+            .get_class_name(class_info_index as usize);
+        let class_loader = klass.class_loader.clone();
+        let class_ref = class_loader.load_class(&class_name);
+        match class_ref {
+            Ok(klass) => match klass {
+                Klass::InstanceKlass(instance_klass_ref) => instance_klass_ref,
+                _ => panic!("Class not found"),
+            },
+            Err(_) => panic!("Class not found"),
+        }
+    }

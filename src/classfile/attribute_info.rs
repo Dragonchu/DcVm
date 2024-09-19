@@ -7,7 +7,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum AttributeInfo {
-    ConstantValue(Rc<ConstantValueAttribute>),
+    ConstantValue(ConstantValueAttribute),
     Code(Rc<CodeAttribute>),
     StackMapTable {
         attribute_name_index: U2,
@@ -137,7 +137,7 @@ pub enum AttributeInfo {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ConstantValueAttribute {
     pub attribute_name_index: U2,
     pub attribute_length: U4,

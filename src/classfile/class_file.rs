@@ -122,7 +122,7 @@ pub struct ClassFile {
     interfaces_count: U2,
     interfaces: Vec<U2>,
     pub fields_count: U2,
-    pub fields: Vec<Rc<RefCell<FieldInfo>>>,
+    pub fields: Vec<FieldInfo>,
     methods_count: U2,
     methods: Vec<MethodInfo>,
     attributes_count: U2,
