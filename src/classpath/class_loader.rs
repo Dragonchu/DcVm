@@ -145,8 +145,10 @@ mod tests {
     fn test_bootstrap_class_loader() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
-        class_path_manager.add_class_path(d.to_str().unwrap());
+        {
+            let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
+            class_path_manager.add_class_path(d.to_str().unwrap());
+        }
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "Main";
         let klass = class_loader.load_class(class_name).unwrap();
@@ -157,8 +159,10 @@ mod tests {
     fn test_bootstrap_class_loader_array() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
-        class_path_manager.add_class_path(d.to_str().unwrap());
+        {
+            let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
+            class_path_manager.add_class_path(d.to_str().unwrap());
+        }
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "[Ljava/lang/String;";
         let klass = class_loader.load_class(class_name).unwrap();
@@ -168,8 +172,10 @@ mod tests {
     fn test_bootstrap_class_loader_multi_array() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
-        class_path_manager.add_class_path(d.to_str().unwrap());
+        {
+            let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
+            class_path_manager.add_class_path(d.to_str().unwrap());
+        }
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "[[[LString";
         let klass = class_loader.load_class(class_name).unwrap();
@@ -180,8 +186,10 @@ mod tests {
     fn test_bootstrap_class_loader_primitive_array() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
-        class_path_manager.add_class_path(d.to_str().unwrap());
+        {
+            let mut class_path_manager = CLASS_PATH_MANGER.lock().unwrap();
+            class_path_manager.add_class_path(d.to_str().unwrap());
+        }
         let class_loader = Rc::new(BootStrapClassLoader::new());
         let class_name = "[I";
         let klass = class_loader.load_class(class_name).unwrap();
