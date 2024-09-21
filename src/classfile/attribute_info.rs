@@ -8,6 +8,8 @@ use crate::{
 #[derive(Debug)]
 pub enum AttributeInfo {
     ConstantValue(ConstantValueAttribute),
+    Code(Rc<CodeAttribute>),
+    ConstantValue(ConstantValueAttribute),
     Code(CodeAttribute),
     StackMapTable {
         attribute_name_index: U2,

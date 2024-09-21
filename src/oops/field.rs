@@ -54,7 +54,7 @@ impl Field {
         let (value_class_type_name, value_class_type) = match value_type {
             ValueType::Object => {
                 let class_type_name = &descriptor[1..descriptor.len() - 1];
-                let class_type = class_loader.load_class(class_type_name).expect("Class not found"); 
+                let class_type = class_loader.load_class(class_type_name).expect("Class not found");
                 (Some(class_type_name.to_string()), Some(class_type))
             }
             ValueType::Array => {
