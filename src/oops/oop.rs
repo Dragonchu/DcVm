@@ -2,7 +2,8 @@ use std::rc::Rc;
 
 use crate::{common::ValueType, jni::jni_md::jint};
 
-use super::klass::{InstanceKlass, Klass, KlassRef};
+use super::klass::{instance_klass::InstanceKlass, klass::{Klass, KlassRef}};
+
 
 pub type MirrorOop = Rc<MirrorOopDesc>;
 
@@ -48,10 +49,10 @@ pub struct InstanceOopDesc {
     instance_field_values: Vec<Oop>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MirrorOopDesc {
-    instance_oop: InstanceOop,
-    mirror_target: Option<KlassRef>,
+    instance_oop: InstanceOopDesc,
+    mirror_target: Option<Klass>,
     mirror_primitive_type: Option<ValueType>,
 }
 

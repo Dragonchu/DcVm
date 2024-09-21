@@ -1,100 +1,11 @@
 use core::str;
-use std::fmt;
+use std::{cell::RefCell, fmt, rc::Rc};
 
 use crate::classfile::types::{U1, U2, U4};
 
-use super::attribute_info::AttributeInfo;
+use super::{attribute_info::AttributeInfo, constant_pool::ConstantPool};
 
-pub enum CpInfo {
-    Class {
-        tag: U1,
-        name_index: U2,
-    },
-    Double {
-        tag: U1,
-        high_bytes: U4,
-        low_bytes: U4,
-    },
-    FieldRef {
-        tag: U1,
-        class_index: U2,
-        name_and_type_index: U2,
-    },
-    Float {
-        tag: U1,
-        bytes: U4,
-    },
-    Integer {
-        tag: U1,
-        bytes: U4,
-    },
-    InterfaceMethodRef {
-        tag: U1,
-        class_index: U2,
-        name_and_type_index: U2,
-    },
-    InvokeDynamic {
-        tag: U1,
-        bootstrap_method_attr_index: U2,
-        name_and_type_index: U2,
-    },
-    Long {
-        tag: U1,
-        high_bytes: U4,
-        low_bytes: U4,
-    },
-    MethodHandle {
-        tag: U1,
-        reference_kind: U1,
-        reference_index: U2,
-    },
-    MethodType {
-        tag: U1,
-        descriptor_index: U2,
-    },
-    MethodRef {
-        tag: U1,
-        class_index: U2,
-        name_and_type_index: U2,
-    },
-    NameAndType {
-        tag: U1,
-        name_index: U2,
-        descriptor_index: U2,
-    },
-    String {
-        tag: U1,
-        string_index: U2,
-    },
-    Utf8 {
-        tag: U1,
-        length: U2,
-        bytes: Vec<U1>,
-    },
-    Padding,
-}
 
-impl fmt::Debug for CpInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            CpInfo::Class { tag, name_index } => write!(f, "\n  Class{{tag {}, name_index: {}}}", tag, name_index),
-            CpInfo::Double { tag, high_bytes, low_bytes } => write!(f, "\n  Double{{tag: {}, high_bytes: {}, low_bytes: {}}}", tag, high_bytes, low_bytes),
-            CpInfo::FieldRef { tag, class_index, name_and_type_index } => write!(f, "\n  FieldRef{{ tag: {}, class_index: {}, name_and_type_index: {}}}", tag, class_index, name_and_type_index),
-            CpInfo::Float { tag, bytes } => write!(f, "\n  Float{{tag: {}, bytes: {}}}", tag, bytes),
-            CpInfo::Integer { tag, bytes } => write!(f, "\n  Integer{{tag: {}, bytes: {}}}", tag, bytes),
-            CpInfo::InterfaceMethodRef { tag, class_index, name_and_type_index } => write!(f, "\n  InterfaceMethodRef{{tag: {}, class_index: {}, name_and_type_index: {}}}", tag, class_index, name_and_type_index),
-            CpInfo::InvokeDynamic { tag, bootstrap_method_attr_index, name_and_type_index } => write!(f, "\n  InvokeDynamic{{tag: {}, bootstrap_method_attr_index: {}, name_and_type_index: {}}}", tag, bootstrap_method_attr_index, name_and_type_index),
-            CpInfo::Long { tag, high_bytes, low_bytes } => write!(f, "\n  Long{{tag: {}, high_bytes: {}, low_bytes: {}}}", tag, high_bytes, low_bytes),
-            CpInfo::MethodHandle { tag, reference_kind, reference_index } => write!(f, "\n  MethodHandle{{tag: {}, reference_kind: {}, reference_index: {}}}", tag, reference_kind, reference_index),
-            CpInfo::MethodType { tag, descriptor_index } => write!(f, "\n  MethodType{{tag: {}, descriptor_index: {}}}", tag, descriptor_index),
-            CpInfo::MethodRef { tag, class_index, name_and_type_index } => write!(f, "\n  MethodRef{{tag: {}, class_index: {}, name_and_type_index: {}}}", tag, class_index, name_and_type_index),
-            CpInfo::NameAndType { tag, name_index, descriptor_index } => write!(f, "\n  NameAndType{{tag: {}, name_index: {}, descriptor_index: {}}}", tag, name_index, descriptor_index),
-            CpInfo::String { tag, string_index } => write!(f, "\n  String{{tag: {}, string_index: {}}}", tag, string_index),
-            CpInfo::Utf8 { tag, length, bytes } => write!(f, "\n  Utf8{{tag: {}, length: {}, bytes: {:?}}}", tag, length, str::from_utf8(bytes).unwrap()),
-            CpInfo::Padding => write!(f, "\n  Padding"),
-        }
-    }
-}
 
 pub enum ConstantInfoTag {
     ConstantUtf8 = 1,
@@ -142,11 +53,11 @@ impl TryFrom<u8> for ConstantInfoTag {
 
 #[derive(Debug)]
 pub struct FieldInfo {
-    access_flags: U2,
-    name_index: U2,
-    descriptor_index: U2,
-    attributes_count: U2,
-    attributes: Vec<AttributeInfo>,
+    pub access_flags: U2,
+    pub name_index: U2,
+    pub descriptor_index: U2,
+    pub attributes_count: U2,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl FieldInfo {
@@ -198,20 +109,20 @@ impl fmt::Debug for MethodInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClassFile {
     magic: U4,
     minor_version: U2,
     major_version: U2,
     constant_pool_count: U2,
-    pub constant_pool: Vec<CpInfo>,
+    pub constant_pool: ConstantPool,
     pub access_flags: U2,
     pub this_class: U2,
     pub super_class: U2,
     interfaces_count: U2,
     interfaces: Vec<U2>,
     pub fields_count: U2,
-    fields: Vec<FieldInfo>,
+    pub fields: Vec<FieldInfo>,
     methods_count: U2,
     methods: Vec<MethodInfo>,
     attributes_count: U2,
@@ -224,14 +135,14 @@ impl ClassFile {
         minor_version: U2,
         major_version: U2,
         constant_pool_count: U2,
-        constant_pool: Vec<CpInfo>,
+        constant_pool: ConstantPool,
         access_flags: U2,
         this_class: U2,
         super_class: U2,
         interfaces_count: U2,
         interfaces: Vec<U2>,
         fields_count: U2,
-        fields: Vec<FieldInfo>,
+        fields: Vec<Rc<FieldInfo>>,
         methods_count: U2,
         methods: Vec<MethodInfo>,
         attributes_count: U2,
