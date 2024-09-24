@@ -11,7 +11,7 @@ enum ClassPathEntry {
 }
 
 #[derive(Debug, Clone)]
-pub struct ClassNotFoundError;
+pub(crate) struct ClassNotFoundError;
 
 impl std::fmt::Display for ClassNotFoundError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -30,7 +30,7 @@ impl ClassPathManager {
         }
     }
 
-    pub fn add_class_path(&mut self, path: &str) {
+    fn add_class_path(&mut self, path: &str) {
         let md = fs::metadata(&path).expect("Invalid class path");
         let source = if md.is_dir() {
             ClassPathEntry::DIR {
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn test_class_path_manager_jar() {
         let mut class_path_manager = ClassPathManager::new();
-        class_path_manager.add_class_paths("/home/codespace/java/current/jre/lib/rt.jar");
+        class_path_manager.add_class_paths("/Users/dragonchu/.sdkman/candidates/java/8.0.422-amzn/jre/lib/rt.jar");
         let class_file = class_path_manager
             .search_class("java/lang/Boolean")
             .unwrap();
