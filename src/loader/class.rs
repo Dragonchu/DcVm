@@ -1,11 +1,23 @@
-use crate::common::ValueType;
+use crate::common::{ValueType, U2};
 
 pub enum Class {
     Instance(Instance),
     Array(Array),
 }
 
-pub struct Instance {}
+pub struct Field {
+    access_flags: U2,
+    name: String,
+    descriptor: String,
+}
+
+pub struct Instance {
+    access_flags: U2,
+    class_name: String,
+    super_class_name: String,
+    interfaces: Vec<String>,
+
+}
 
 pub enum ElementType {
     Object(Instance),
