@@ -3,7 +3,7 @@ use std::{
     io::BufReader,
 };
 
-use crate::classfile::{class_file::ClassFile, class_file_parse::ClassFileParser};
+use crate::{class_file::ClassFile, class_file_parse::ClassFileParser};
 
 enum ClassPathEntry {
     DIR { path: String },

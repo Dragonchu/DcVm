@@ -1,4 +1,4 @@
-use crate::classfile::types::{U1, U2, U4};
+use crate::types::{U1, U2, U4};
 
 #[derive(Debug)]
 pub enum AttributeInfo {

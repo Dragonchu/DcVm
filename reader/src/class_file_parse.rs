@@ -5,7 +5,7 @@ use std::{
 
 use zip::read::ZipFile;
 
-use crate::classfile::attribute_info::{Annotation, ElementValueItem};
+use crate::attribute_info::{Annotation, ElementValueItem};
 
 use super::{
     attribute_info::{
@@ -62,36 +62,7 @@ trait ClassReader {
     fn read_n(&mut self, size: usize) -> Vec<u8>;
 }
 
-impl ClassReader for BufReader<File> {
-    fn read_u1(&mut self) -> U1 {
-        let mut buffer = [0; 1];
-        self.read_exact(&mut buffer).expect("Failed to read u1");
-        buffer[0]
-    }
-
-    fn read_u2(&mut self) -> U2 {
-        let mut buffer = [0; 2];
-        self.read_exact(&mut buffer).expect("Failed to read u2");
-        ((buffer[0] as u16) << 8) | buffer[1] as u16
-    }
-
-    fn read_u4(&mut self) -> U4 {
-        let mut buffer = [0; 4];
-        self.read_exact(&mut buffer).expect("Failed to read u4");
-        ((buffer[0] as u32) << 24)
-            | ((buffer[1] as u32) << 16)
-            | ((buffer[2] as u32) << 8)
-            | buffer[3] as u32
-    }
-
-    fn read_n(&mut self, size: usize) -> Vec<u8> {
-        let mut buffer = vec![0; size];
-        self.read_exact(&mut buffer).expect("Failed to read");
-        buffer
-    }
-}
-
-impl ClassReader for ZipFile<'_> {
+impl<T:Read> ClassReader for T {
     fn read_u1(&mut self) -> U1 {
         let mut buffer = [0; 1];
         self.read_exact(&mut buffer).expect("Failed to read u1");

@@ -1,7 +1,7 @@
 use core::str;
 use std::fmt;
 
-use crate::classfile::types::{U1, U2, U4};
+use crate::types::{U1, U2, U4};
 
 use super::attribute_info::AttributeInfo;
 
