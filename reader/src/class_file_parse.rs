@@ -5,14 +5,14 @@ use std::{
 
 use zip::read::ZipFile;
 
-use crate::attribute_info::{Annotation, ElementValueItem};
+use crate::{attribute_info::{Annotation, ElementValueItem}, constant_pool::{ConstantInfoTag, CpInfo}, field_info::FieldInfo, method_info::MethodInfo};
 
 use super::{
     attribute_info::{
         AttributeInfo, ElementValue, StackMapFrame, TargetInfo, TypeAnnotation, TypePath,
         VerificationTypeInfo,
     },
-    class_file::{ClassFile, ConstantInfoTag, CpInfo, FieldInfo, MethodInfo},
+    class_file::ClassFile,
     types::{U1, U2, U4},
 };
 
@@ -52,7 +52,8 @@ impl<'a> ClassReader for ClassFileStream<'a> {
 }
 
 pub struct ClassFileParser<'a> {
-    pub class_file_stream: ClassFileStream<'a>,
+    class_file_stream: ClassFileStream<'a>,
+    
 }
 
 trait ClassReader {
