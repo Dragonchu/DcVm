@@ -11,7 +11,7 @@ pub struct ClassFile {
     major_version: U2,
     constant_pool_count: U2,
     constant_pool: Vec<CpInfo>,
-    access_flags: U2,
+    pub access_flags: U2,
     this_class: U2,
     super_class: U2,
     interfaces_count: U2,

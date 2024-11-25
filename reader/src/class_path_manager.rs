@@ -41,7 +41,7 @@ impl ClassPathManager {
                 path: String::from(path),
             }
         } else {
-            panic!("Invalid class path");
+            panic!("Invalid class path: {}", path);
         };
         self.run_time_class_path.push(source);
     }

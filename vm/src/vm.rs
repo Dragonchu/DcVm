@@ -1,6 +1,6 @@
 use crate::{heap::Heap, method_area::MethodArea};
 
-struct Vm {
+struct Vm<'a> {
     heap: Heap,
-    method_area: MethodArea
+    method_area: MethodArea<'a>
 }
