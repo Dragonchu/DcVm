@@ -2,11 +2,13 @@ use reader::{class_file::ClassFile, types::U2};
 
 use crate::runtime_constant_pool::RunTimeConstantPool;
 
+#[derive(Debug)]
 enum Oop<'a> {
     InstanceOop(&'a InstanceOopDesc<'a>),
     ArrayKlassDesc(&'a ArrayKlassDesc<'a>)
 }
 
+#[derive(Debug)]
 enum ComponentType {
     Object
 }
@@ -124,6 +126,7 @@ impl<'a> KlassAbility<'a> for CoreKlassDesc<'a> {
 }
 
 pub type InstanceKlassRef<'a> = &'a InstanceKlassDesc<'a>;
+pub type InstanceOopRef<'a> = &'a InstanceOopDesc<'a>;
 
 #[derive(Debug)]
 pub struct InstanceKlassDesc<'a>{
@@ -142,6 +145,7 @@ impl<'a> InstanceKlassDesc<'a> {
     }
 }
 
+#[derive(Debug)]
 struct ArrayKlassDesc<'a> {
     component_type: ComponentType,
     down_dimension_type: Option<&'a ArrayKlassDesc<'a>>
@@ -155,11 +159,18 @@ impl<'a> ArrayKlassDesc<'a> {
     }
 }
 
-struct InstanceOopDesc<'a> {
+#[derive(Debug)]
+pub struct InstanceOopDesc<'a> {
     fields: Vec<Oop<'a>>,
-    klass: InstanceKlassDesc<'a>
+    klass: InstanceKlassRef<'a>
 }
 impl<'a> InstanceOopDesc<'a> {
+    pub fn new(klass: InstanceKlassRef<'a>) -> InstanceOopDesc<'a> {
+        InstanceOopDesc {
+            fields: Vec::new(),
+            klass: klass
+        }
+    }
     fn set_field_value(&mut self, class_name: &str, field_name: &str, field_descriptor: &str) {
         todo!()
     }

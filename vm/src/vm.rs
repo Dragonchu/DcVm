@@ -1,6 +1,32 @@
-use crate::{heap::Heap, method_area::MethodArea};
+use crate::{class::{InstanceOopDesc, InstanceOopRef}, class_loader::BootstrapClassLoader, heap::Heap, method_area::MethodArea};
 
 struct Vm<'a> {
-    heap: Heap,
-    method_area: MethodArea<'a>
+    heap: Heap<'a>,
+    method_area: MethodArea<'a>,
+    class_loader: BootstrapClassLoader<'a>
+}
+impl<'a> Vm<'a> {
+    fn new() -> Vm<'a> {
+        Vm {
+            heap: Heap::new(),
+            method_area: MethodArea::new(),
+            class_loader: BootstrapClassLoader::new("resources/test")
+        }
+    }
+    fn new_instance(&'a mut self, class_name: &str) -> InstanceOopRef<'a> {
+       let class = self.class_loader.load(class_name, &self.method_area);
+       self.heap.allocate_instance_oop(InstanceOopDesc::new(class))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    #[test]
+    fn parse_main_class() {
+        let mut vm = Vm::new();
+        let oop = vm.new_instance("Main");
+        println!("{:?}", oop);
+    }
 }
