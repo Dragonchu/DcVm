@@ -6,11 +6,11 @@ struct Vm<'a> {
     class_loader: BootstrapClassLoader<'a>
 }
 impl<'a> Vm<'a> {
-    fn new() -> Vm<'a> {
+    fn new(paths: &'a str) -> Vm<'a> {
         Vm {
             heap: Heap::new(),
             method_area: MethodArea::new(),
-            class_loader: BootstrapClassLoader::new("resources/test")
+            class_loader: BootstrapClassLoader::new(paths)
         }
     }
     fn new_instance(&'a mut self, class_name: &str) -> InstanceOopRef<'a> {
@@ -25,7 +25,7 @@ mod tests {
     use std::path::PathBuf;
     #[test]
     fn parse_main_class() {
-        let mut vm = Vm::new();
+        let mut vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
         let oop = vm.new_instance("Main");
         println!("{:?}", oop);
     }

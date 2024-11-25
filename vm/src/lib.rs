@@ -8,3 +8,4 @@ mod native_method;
 mod pc_register;
 mod stack;
 mod vm;
+mod method;
