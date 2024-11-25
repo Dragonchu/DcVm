@@ -1,7 +1,7 @@
 use crate::{pc_register::PcRegister, stack::Stack};
 
-struct JvmThread {
+struct JvmThread<'rtcp> {
     pc_register: PcRegister,
-    stack: Stack,
-    native: Stack
+    stack: Stack<'rtcp>,
+    native: Stack<'rtcp>
 }
