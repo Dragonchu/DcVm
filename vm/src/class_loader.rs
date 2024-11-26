@@ -3,16 +3,15 @@ use std::collections::HashMap;
 use reader::{class_file::ClassFile, class_path_manager::{self, ClassPathManager}};
 use typed_arena::Arena;
 
-use crate::{class::{InstanceKlassDesc, InstanceKlassRef, Klass}, method_area::MethodArea};
+use crate::oop_klass::Klass;
 
-
-pub struct BootstrapClassLoader<'a> {
+pub struct BootstrapClassLoader{
     class_path_manager: ClassPathManager,
-    classes: HashMap<String, InstanceKlassRef<'a>>
+    classes: HashMap<String, Klass>
 }
 
-impl<'a> BootstrapClassLoader<'a> {
-    pub fn new(paths: &str) -> BootstrapClassLoader<'_> {
+impl BootstrapClassLoader {
+    pub fn new(paths: &str) -> BootstrapClassLoader {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_paths(paths);
         BootstrapClassLoader {

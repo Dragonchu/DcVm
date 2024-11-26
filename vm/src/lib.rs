@@ -11,3 +11,4 @@ mod vm;
 mod method;
 mod allocator;
 mod rawptr;
+mod oop_klass;
