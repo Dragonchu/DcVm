@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use reader::{class_file::ClassFile, class_path_manager::{self, ClassPathManager}};
 use typed_arena::Arena;
 
-use crate::oop_klass::Klass;
+use crate::taggedptr::Klass;
 
 pub struct BootstrapClassLoader{
     class_path_manager: ClassPathManager,

@@ -11,4 +11,7 @@ mod vm;
 mod method;
 mod allocator;
 mod rawptr;
-mod oop_klass;
+mod taggedptr;
+mod pointerops;
+mod safeptr;
+mod fatptr;
