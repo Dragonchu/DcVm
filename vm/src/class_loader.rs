@@ -6,13 +6,13 @@ use typed_arena::Arena;
 use crate::{class::{InstanceKlassDesc, InstanceKlassRef, Klass}, method_area::MethodArea};
 
 
-pub struct BootstrapClassLoader<'a> {
+pub struct BootstrapClassLoader<'memory> {
     class_path_manager: ClassPathManager,
-    classes: RefCell<HashMap<String, InstanceKlassRef<'a>>>
+    classes: RefCell<HashMap<String, InstanceKlassRef<'memory>>>
 }
 
-impl<'a> BootstrapClassLoader<'a> {
-    pub fn new(paths: &str) -> BootstrapClassLoader<'_> {
+impl<'memory> BootstrapClassLoader<'memory> {
+    pub fn new(paths: &str) -> BootstrapClassLoader {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_paths(paths);
         BootstrapClassLoader {
@@ -21,7 +21,7 @@ impl<'a> BootstrapClassLoader<'a> {
         } 
     }
 
-    pub fn load(&'a self, class_name: &str, method_area: &'a MethodArea<'a>) -> InstanceKlassRef<'a> {
+    pub fn load(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> InstanceKlassRef<'memory> {
         if self.classes.borrow().contains_key(class_name) {
             return self.classes.borrow().get(class_name).unwrap();
         }

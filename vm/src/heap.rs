@@ -2,8 +2,8 @@ use typed_arena::Arena;
 
 use crate::{class::{InstanceOopDesc, InstanceOopRef}, method_area::MethodArea};
 
-pub struct Heap<'a> {
-    instance_oops: Arena<InstanceOopDesc<'a>>,
+pub struct Heap<'memory> {
+    instance_oops: Arena<InstanceOopDesc<'memory>>,
 }
 impl<'a> Heap<'a> {
     pub fn new() -> Heap<'a>{

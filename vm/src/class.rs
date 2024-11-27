@@ -3,9 +3,9 @@ use reader::{class_file::ClassFile, types::U2};
 use crate::runtime_constant_pool::RunTimeConstantPool;
 
 #[derive(Debug)]
-enum Oop<'a> {
-    InstanceOop(&'a InstanceOopDesc<'a>),
-    ArrayKlassDesc(&'a ArrayKlassDesc<'a>)
+enum Oop<'memory> {
+    InstanceOop(&'memory InstanceOopDesc<'memory>),
+    ArrayKlassDesc(&'memory ArrayKlassDesc<'memory>)
 }
 
 #[derive(Debug)]
@@ -125,19 +125,19 @@ impl<'a> KlassAbility<'a> for CoreKlassDesc<'a> {
     }
 }
 
-pub type InstanceKlassRef<'a> = &'a InstanceKlassDesc<'a>;
-pub type InstanceOopRef<'a> = &'a InstanceOopDesc<'a>;
+pub type InstanceKlassRef<'memory> = &'memory InstanceKlassDesc<'memory>;
+pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
 
 #[derive(Debug)]
-pub struct InstanceKlassDesc<'a>{
+pub struct InstanceKlassDesc<'metaspace>{
     class_state: ClassState,
-    super_class: Option<&'a InstanceKlassDesc<'a>>,
+    super_class: Option<&'metaspace InstanceKlassDesc<'metaspace>>,
     fields_count: usize,
-    class_file: &'a ClassFile,
+    class_file: &'metaspace ClassFile,
 }
 
-impl<'a> InstanceKlassDesc<'a> {
-    pub fn new(class_file: &'a ClassFile) -> InstanceKlassDesc<'a> {
+impl<'metaspace> InstanceKlassDesc<'metaspace> {
+    pub fn new(class_file: &'metaspace ClassFile) -> InstanceKlassDesc<'metaspace> {
         InstanceKlassDesc {
             class_state: ClassState::Allocated,
             super_class: None,
@@ -148,11 +148,11 @@ impl<'a> InstanceKlassDesc<'a> {
 }
 
 #[derive(Debug)]
-struct ArrayKlassDesc<'a> {
+struct ArrayKlassDesc<'metaspace> {
     component_type: ComponentType,
-    down_dimension_type: Option<&'a ArrayKlassDesc<'a>>
+    down_dimension_type: Option<&'metaspace ArrayKlassDesc<'metaspace>>
 }
-impl<'a> ArrayKlassDesc<'a> {
+impl<'metaspace> ArrayKlassDesc<'metaspace> {
     fn get_dimension(&self) -> usize {
         todo!()
     }
@@ -162,12 +162,12 @@ impl<'a> ArrayKlassDesc<'a> {
 }
 
 #[derive(Debug)]
-pub struct InstanceOopDesc<'a> {
-    fields: Vec<Oop<'a>>,
-    klass: InstanceKlassRef<'a>
+pub struct InstanceOopDesc<'memory> {
+    fields: Vec<Oop<'memory>>,
+    klass: InstanceKlassRef<'memory>
 }
-impl<'a> InstanceOopDesc<'a> {
-    pub fn new(klass: InstanceKlassRef<'a>) -> InstanceOopDesc<'a> {
+impl<'memory> InstanceOopDesc<'memory> {
+    pub fn new(klass: InstanceKlassRef<'memory>) -> InstanceOopDesc<'memory> {
         InstanceOopDesc {
             fields: Vec::with_capacity(klass.fields_count),
             klass: klass
@@ -177,16 +177,16 @@ impl<'a> InstanceOopDesc<'a> {
         todo!()
     }
 
-    fn get_field_value(&self, class_name: &str, field_name: &str, field_descriptor: &str) -> &'a Oop {
+    fn get_field_value(&self, class_name: &str, field_name: &str, field_descriptor: &str) -> &'memory Oop {
         todo!()
     }
 }
 
-struct ArrayOopDesc<'a> {
-    elements: Vec<Oop<'a>>,
-    klass: ArrayKlassDesc<'a>
+struct ArrayOopDesc<'heap, 'metaspace> {
+    elements: Vec<Oop<'heap>>,
+    klass: ArrayKlassDesc<'metaspace>
 }
-impl<'a> ArrayOopDesc<'a> {
+impl<'heap, 'metaspace> ArrayOopDesc<'heap, 'metaspace> {
     fn get_dimension(&self) -> usize {
         todo!()
     }
@@ -195,7 +195,7 @@ impl<'a> ArrayOopDesc<'a> {
         todo!()
     }
 
-    fn get_element_at(&'a self, position: usize) -> &'a Oop {
+    fn get_element_at(&self, position: usize) -> &Oop {
         todo!()
     }
 

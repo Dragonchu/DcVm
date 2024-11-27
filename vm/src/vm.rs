@@ -1,19 +1,19 @@
 use crate::{class::{InstanceOopDesc, InstanceOopRef}, class_loader::BootstrapClassLoader, heap::Heap, method_area::MethodArea};
 
-struct Vm<'a> {
-    heap: Heap<'a>,
-    method_area: MethodArea<'a>,
-    class_loader: BootstrapClassLoader<'a>
+struct Vm<'memory> {
+    heap: Heap<'memory>,
+    method_area: MethodArea<'memory>,
+    class_loader: BootstrapClassLoader<'memory>
 }
-impl<'a> Vm<'a> {
-    fn new(paths: &'a str) -> Vm<'a> {
+impl<'memory> Vm<'memory> {
+    fn new(paths: &'memory str) -> Vm<'memory> {
         Vm {
             heap: Heap::new(),
             method_area: MethodArea::new(),
             class_loader: BootstrapClassLoader::new(paths)
         }
     }
-    fn new_instance(&'a self, class_name: &str) -> InstanceOopRef<'a> {
+    fn new_instance(&'memory self, class_name: &str) -> InstanceOopRef<'memory> {
        let class = self.class_loader.load(class_name, &self.method_area);
        self.heap.allocate_instance_oop(InstanceOopDesc::new(class))
     }
