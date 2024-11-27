@@ -156,7 +156,8 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
         let cp_pool = &self.class_file.constant_pool;
         for method_info in &self.class_file.methods {
             let method = Method::new(&method_info, cp_pool);
-            println!("{:?}", method);
+            let unique_key = method.get_unique_key();
+            self.methods.borrow_mut().insert(unique_key, method);
         }
     }
 }

@@ -290,3 +290,11 @@ pub struct TypePath {
     //type_path_kind, type_argument_index
     pub path: Vec<(U1, U1)>,
 }
+
+trait AttributeInfos {
+    
+}
+
+impl AttributeInfos for Vec<AttributeInfo> {
+
+}

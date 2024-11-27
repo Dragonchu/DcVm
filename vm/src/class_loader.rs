@@ -50,5 +50,6 @@ mod tests {
         let method_area = MethodArea::new();
         let klass_ref = cl.load("Main", &method_area);
         klass_ref.link_method();
+        println!("{:?}", klass_ref)
     }
 }
