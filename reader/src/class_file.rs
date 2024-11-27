@@ -16,7 +16,7 @@ pub struct ClassFile {
     super_class: U2,
     interfaces_count: U2,
     interfaces: Vec<U2>,
-    fields_count: U2,
+    pub fields_count: U2,
     fields: Vec<FieldInfo>,
     methods_count: U2,
     methods: Vec<MethodInfo>,

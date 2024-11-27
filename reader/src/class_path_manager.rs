@@ -52,7 +52,7 @@ impl ClassPathManager {
         }
     }
 
-    pub fn search_class(&mut self, class_name: &str) -> Result<ClassFile, ClassNotFoundError> {
+    pub fn search_class(&self, class_name: &str) -> Result<ClassFile, ClassNotFoundError> {
         let file_name = class_name
             .replace("/", std::path::MAIN_SEPARATOR_STR)
             .replace(".", std::path::MAIN_SEPARATOR_STR)

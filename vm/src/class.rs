@@ -132,6 +132,7 @@ pub type InstanceOopRef<'a> = &'a InstanceOopDesc<'a>;
 pub struct InstanceKlassDesc<'a>{
     class_state: ClassState,
     super_class: Option<&'a InstanceKlassDesc<'a>>,
+    fields_count: usize,
     class_file: &'a ClassFile,
 }
 
@@ -140,6 +141,7 @@ impl<'a> InstanceKlassDesc<'a> {
         InstanceKlassDesc {
             class_state: ClassState::Allocated,
             super_class: None,
+            fields_count: class_file.fields_count as usize,
             class_file: class_file
         }
     }
@@ -167,7 +169,7 @@ pub struct InstanceOopDesc<'a> {
 impl<'a> InstanceOopDesc<'a> {
     pub fn new(klass: InstanceKlassRef<'a>) -> InstanceOopDesc<'a> {
         InstanceOopDesc {
-            fields: Vec::new(),
+            fields: Vec::with_capacity(klass.fields_count),
             klass: klass
         }
     }

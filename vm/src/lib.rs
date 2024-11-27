@@ -9,5 +9,3 @@ mod pc_register;
 mod stack;
 mod vm;
 mod method;
-mod allocator;
-mod rawptr;

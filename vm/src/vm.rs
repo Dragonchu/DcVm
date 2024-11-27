@@ -13,7 +13,7 @@ impl<'a> Vm<'a> {
             class_loader: BootstrapClassLoader::new(paths)
         }
     }
-    fn new_instance(&'a mut self, class_name: &str) -> InstanceOopRef<'a> {
+    fn new_instance(&'a self, class_name: &str) -> InstanceOopRef<'a> {
        let class = self.class_loader.load(class_name, &self.method_area);
        self.heap.allocate_instance_oop(InstanceOopDesc::new(class))
     }
@@ -25,8 +25,14 @@ mod tests {
     use std::path::PathBuf;
     #[test]
     fn parse_main_class() {
-        let mut vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
+        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
         let oop = vm.new_instance("Main");
         println!("{:?}", oop);
+    }
+
+    #[test]
+    fn layout_test() {
+        use std::mem;
+        println!("size: {}, align: {}", std::mem::size_of::<InstanceOopDesc>(), std::mem::align_of::<InstanceOopDesc>());
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use reader::{class_file::ClassFile, class_path_manager::{self, ClassPathManager}};
 use typed_arena::Arena;
@@ -8,7 +8,7 @@ use crate::{class::{InstanceKlassDesc, InstanceKlassRef, Klass}, method_area::Me
 
 pub struct BootstrapClassLoader<'a> {
     class_path_manager: ClassPathManager,
-    classes: HashMap<String, InstanceKlassRef<'a>>
+    classes: RefCell<HashMap<String, InstanceKlassRef<'a>>>
 }
 
 impl<'a> BootstrapClassLoader<'a> {
@@ -17,17 +17,17 @@ impl<'a> BootstrapClassLoader<'a> {
         class_path_manager.add_class_paths(paths);
         BootstrapClassLoader {
             class_path_manager,
-            classes: HashMap::new()
+            classes: RefCell::new(HashMap::new())
         } 
     }
 
-    pub fn load(&'a mut self, class_name: &str, method_area: &'a MethodArea<'a>) -> InstanceKlassRef<'a> {
-        if self.classes.contains_key(class_name) {
-            return self.classes.get(class_name).unwrap();
+    pub fn load(&'a self, class_name: &str, method_area: &'a MethodArea<'a>) -> InstanceKlassRef<'a> {
+        if self.classes.borrow().contains_key(class_name) {
+            return self.classes.borrow().get(class_name).unwrap();
         }
         let class_file = self.class_path_manager.search_class(class_name).expect("msg");
         let instance_klass_ref = method_area.allocate_instance_klass(class_file);
-        self.classes.insert(String::from(class_name), instance_klass_ref);
+        self.classes.borrow_mut().insert(String::from(class_name), instance_klass_ref);
         instance_klass_ref 
     }
 }
