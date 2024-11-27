@@ -27,6 +27,7 @@ impl<'memory> BootstrapClassLoader<'memory> {
         }
         let class_file = self.class_path_manager.search_class(class_name).expect("msg");
         let instance_klass_ref = method_area.allocate_instance_klass(class_file);
+        instance_klass_ref.link_method();
         self.classes.borrow_mut().insert(String::from(class_name), instance_klass_ref);
         instance_klass_ref 
     }
