@@ -6,22 +6,22 @@ use super::attribute_info::AttributeInfo;
 
 #[derive(Debug)]
 pub struct ClassFile {
-    magic: U4,
-    minor_version: U2,
-    major_version: U2,
-    constant_pool_count: U2,
-    constant_pool: Vec<CpInfo>,
+    pub magic: U4,
+    pub minor_version: U2,
+    pub major_version: U2,
+    pub constant_pool_count: U2,
+    pub constant_pool: Vec<CpInfo>,
     pub access_flags: U2,
-    this_class: U2,
-    super_class: U2,
-    interfaces_count: U2,
-    interfaces: Vec<U2>,
+    pub this_class: U2,
+    pub super_class: U2,
+    pub interfaces_count: U2,
+    pub interfaces: Vec<U2>,
     pub fields_count: U2,
-    fields: Vec<FieldInfo>,
-    methods_count: U2,
-    methods: Vec<MethodInfo>,
-    attributes_count: U2,
-    attributes: Vec<AttributeInfo>,
+    pub fields: Vec<FieldInfo>,
+    pub methods_count: U2,
+    pub methods: Vec<MethodInfo>,
+    pub attributes_count: U2,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl ClassFile {

@@ -1,6 +1,8 @@
+use std::{cell::{Ref, RefCell}, collections::HashMap};
+
 use reader::{class_file::ClassFile, types::U2};
 
-use crate::runtime_constant_pool::RunTimeConstantPool;
+use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
 
 #[derive(Debug)]
 enum Oop<'memory> {
@@ -133,6 +135,8 @@ pub struct InstanceKlassDesc<'metaspace>{
     class_state: ClassState,
     super_class: Option<&'metaspace InstanceKlassDesc<'metaspace>>,
     fields_count: usize,
+    vtable: RefCell<HashMap<String, Method>>,
+    methods: RefCell<HashMap<String, Method>>,
     class_file: &'metaspace ClassFile,
 }
 
@@ -142,7 +146,17 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
             class_state: ClassState::Allocated,
             super_class: None,
             fields_count: class_file.fields_count as usize,
+            vtable: RefCell::new(HashMap::new()),
+            methods: RefCell::new(HashMap::new()),
             class_file: class_file
+        }
+    }
+
+    pub fn link_method(&self) {
+        let cp_pool = &self.class_file.constant_pool;
+        for method_info in &self.class_file.methods {
+            let method = Method::new(&method_info, cp_pool);
+            println!("{:?}", method);
         }
     }
 }

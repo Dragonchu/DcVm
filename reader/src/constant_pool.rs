@@ -3,6 +3,19 @@ use std::fmt;
 
 use crate::types::{U1, U2, U4};
 
+pub trait CpInfoData {
+    fn to_utf8_string(&self) -> String;
+}
+
+impl CpInfoData for CpInfo {
+    fn to_utf8_string(&self) -> String {
+        if let CpInfo::Utf8 { tag:_, length:_, bytes } = self {
+           str::from_utf8(bytes).unwrap().to_string()
+        } else {
+            panic!("wrong type")
+        }
+    }
+}
 pub enum CpInfo {
     Class {
         tag: U1,
@@ -135,5 +148,16 @@ impl TryFrom<u8> for ConstantInfoTag {
                 Err(())
             }
         }
+    }
+}
+
+pub trait ConstantPool {
+    fn get_utf8_string(&self, index: U2) -> String;
+}
+
+impl<T: CpInfoData> ConstantPool for Vec<T> {
+    fn get_utf8_string(&self, index: U2) -> String {
+        let cp_info = self.get((index - 1) as usize).expect("Unknow string");
+        cp_info.to_utf8_string()
     }
 }
