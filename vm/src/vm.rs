@@ -35,4 +35,13 @@ mod tests {
         use std::mem;
         println!("size: {}, align: {}", std::mem::size_of::<InstanceOopDesc>(), std::mem::align_of::<InstanceOopDesc>());
     }
+
+    #[test]
+    fn get_main_method() {
+        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
+        let oop = vm.new_instance("Main");
+        let klass = oop.get_klass();
+        let method = klass.get_method("<init>", "()V");
+        println!("{:?}", method);
+    }
 }

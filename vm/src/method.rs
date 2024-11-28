@@ -1,14 +1,14 @@
 use std::{cell::{Cell, Ref, RefCell}, fmt::format};
 
 use reader::{attribute_info::AttributeInfo, constant_pool::{ConstantPool, CpInfo, CpInfoData}, method_info::MethodInfo, types::{U1, U2, U4}};
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ExceptionEntry {
     start_pc: U2,
     end_pc: U2,
     handler_pc: U2,
     catch_type: U2
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Code {
     max_stack: U2,
     max_locals: U2,
@@ -16,7 +16,7 @@ struct Code {
     exception_table_length: U2,
     exception_table: Vec<ExceptionEntry>
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Method {
     access_flags: U2,
     name: String,
@@ -70,5 +70,12 @@ impl Method {
         format!("{name} {descriptor}")
     }
 
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_descriptor(&self) -> String {
+        self.descriptor.clone()
+    }
 
 }

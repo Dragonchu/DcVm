@@ -140,6 +140,10 @@ pub struct InstanceKlassDesc<'metaspace>{
     class_file: &'metaspace ClassFile,
 }
 
+fn gen_method_key(name: &str, descriptor: &str) -> String {
+    format!("{name} {descriptor}")
+}
+
 impl<'metaspace> InstanceKlassDesc<'metaspace> {
     pub fn new(class_file: &'metaspace ClassFile) -> InstanceKlassDesc<'metaspace> {
         InstanceKlassDesc {
@@ -156,9 +160,14 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
         let cp_pool = &self.class_file.constant_pool;
         for method_info in &self.class_file.methods {
             let method = Method::new(&method_info, cp_pool);
-            let unique_key = method.get_unique_key();
+            let unique_key = gen_method_key(&method.get_name(), &method.get_descriptor());
             self.methods.borrow_mut().insert(unique_key, method);
         }
+    }
+
+    pub fn get_method(&self, method_name: &str, descriptor: &str) -> Method {
+       let unique_key = gen_method_key(method_name, descriptor);
+       self.methods.borrow().get(&unique_key).expect("No method found").clone()
     }
 }
 
@@ -187,6 +196,9 @@ impl<'memory> InstanceOopDesc<'memory> {
             fields: Vec::with_capacity(klass.fields_count),
             klass: klass
         }
+    }
+    pub fn get_klass(&self) -> InstanceKlassRef {
+        self.klass
     }
     fn set_field_value(&mut self, class_name: &str, field_name: &str, field_descriptor: &str) {
         todo!()
