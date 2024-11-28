@@ -44,4 +44,17 @@ mod tests {
         let method = klass.get_method("<init>", "()V");
         println!("{:?}", method);
     }
+
+        #[test]
+    fn parse_codes() {
+        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
+        let oop = vm.new_instance("Main");
+        let klass = oop.get_klass();
+        let method = klass.get_method("<init>", "()V");
+        println!("{:?}", method);
+        let code = method.get_code();
+        for instruction in code.byte_codes.iter() {
+            println!("{:?}", instruction);
+        }
+    }
 }
