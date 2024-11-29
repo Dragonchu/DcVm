@@ -10,13 +10,18 @@ enum Oop<'memory> {
 }
 
 #[derive(Debug)]
-enum ComponentType<'memory> {
+pub enum ComponentType<'memory> {
     Object(InstanceKlassRef<'memory>),
     Array(ArrayKlassRef<'memory>),
-}
-
-pub enum Klass<'a> {
-    Instance(&'a InstanceKlassDesc<'a>),
+    Byte,
+    Boolean,
+    Short,
+    Char,
+    Int,
+    Long,
+    Float,
+    Double,
+    Void
 }
 
 #[derive(Debug,Clone, Copy)]
@@ -126,9 +131,15 @@ impl<'a> KlassAbility<'a> for CoreKlassDesc<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Klass<'memory> {
+    Instance(InstanceKlassRef<'memory>),
+    Array(ArrayKlassRef<'memory>)
+}
+
 pub type InstanceKlassRef<'memory> = &'memory InstanceKlassDesc<'memory>;
-pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
 pub type ArrayKlassRef<'memory> = &'memory ArrayKlassDesc<'memory>;
+pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
 
 #[derive(Debug)]
 pub struct InstanceKlassDesc<'metaspace>{
@@ -176,17 +187,10 @@ pub struct ArrayKlassDesc<'memory> {
     component_type: ComponentType<'memory>,
 }
 impl<'memory> ArrayKlassDesc<'memory> {
-    fn multi_dimentsion(dimension: usize, down_array: ArrayKlassRef<'memory>) -> ArrayKlassDesc {
+    pub fn new(dimension: usize, component_type: ComponentType) -> ArrayKlassDesc {
         ArrayKlassDesc {
             dimension,
-            component_type: ComponentType::Array(down_array)
-        }
-    }
-
-    fn object_array(component_klass: InstanceKlassRef<'memory>) -> ArrayKlassDesc {
-        ArrayKlassDesc {
-            dimension: 1,
-            component_type: ComponentType::Object(component_klass)
+            component_type
         }
     }
 }

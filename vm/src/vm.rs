@@ -1,4 +1,4 @@
-use crate::{class::{InstanceOopDesc, InstanceOopRef}, class_loader::BootstrapClassLoader, heap::Heap, method_area::MethodArea};
+use crate::{class::{InstanceOopDesc, InstanceOopRef, Klass}, class_loader::BootstrapClassLoader, heap::Heap, method_area::MethodArea};
 
 struct Vm<'memory> {
     heap: Heap<'memory>,
@@ -15,7 +15,14 @@ impl<'memory> Vm<'memory> {
     }
     fn new_instance(&'memory self, class_name: &str) -> InstanceOopRef<'memory> {
        let class = self.class_loader.load(class_name, &self.method_area);
-       self.heap.allocate_instance_oop(InstanceOopDesc::new(class))
+       match class {
+            Klass::Instance(instance_klass) => {
+                self.heap.allocate_instance_oop(InstanceOopDesc::new(instance_klass))
+            },
+            _ => {
+                panic!("Donot support yet")
+            }
+       }
     }
 }
 
