@@ -20,7 +20,7 @@ impl<'memory> Vm<'memory> {
                 self.heap.allocate_instance_oop(InstanceOopDesc::new(instance_klass))
             },
             _ => {
-                panic!("Donot support yet")
+                panic!("Not instance klass")
             }
        }
     }

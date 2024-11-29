@@ -193,6 +193,10 @@ impl<'memory> ArrayKlassDesc<'memory> {
             component_type
         }
     }
+
+    pub fn get_dimension(&self) -> usize {
+        self.dimension
+    }
 }
 
 #[derive(Debug)]
@@ -219,24 +223,16 @@ impl<'memory> InstanceOopDesc<'memory> {
     }
 }
 
-struct ArrayOopDesc<'heap, 'metaspace> {
-    elements: Vec<Oop<'heap>>,
-    klass: ArrayKlassRef<'metaspace>
+struct ArrayOopDesc<'memory> {
+    elements: Vec<Oop<'memory>>,
+    klass: ArrayKlassRef<'memory>
 }
-impl<'heap, 'metaspace> ArrayOopDesc<'heap, 'metaspace> {
-    fn get_dimension(&self) -> usize {
-        todo!()
-    }
-
-    fn get_length(&self) -> usize {
-        todo!()
-    }
-
-    fn get_element_at(&self, position: usize) -> &Oop {
-        todo!()
-    }
-
-    fn set_element_at(&mut self, element: Oop) {
-        todo!()
+impl<'memory> ArrayOopDesc<'memory> {
+    pub fn new(klass: ArrayKlassRef<'memory>) -> ArrayOopDesc<'memory> {
+        let dimension = klass.get_dimension();
+        ArrayOopDesc{
+            elements: Vec::with_capacity(dimension),
+            klass
+        }
     }
 }
