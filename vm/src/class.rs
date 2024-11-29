@@ -6,18 +6,17 @@ use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
 
 #[derive(Debug)]
 enum Oop<'memory> {
-    InstanceOop(&'memory InstanceOopDesc<'memory>),
-    ArrayKlassDesc(&'memory ArrayKlassDesc<'memory>)
+    InstanceOop(&'memory InstanceOopDesc<'memory>)
 }
 
 #[derive(Debug)]
-enum ComponentType {
-    Object
+enum ComponentType<'memory> {
+    Object(InstanceKlassRef<'memory>),
+    Array(ArrayKlassRef<'memory>),
 }
 
 pub enum Klass<'a> {
     Instance(&'a InstanceKlassDesc<'a>),
-    Array(&'a ArrayKlassDesc<'a>) 
 }
 
 #[derive(Debug,Clone, Copy)]
@@ -129,6 +128,7 @@ impl<'a> KlassAbility<'a> for CoreKlassDesc<'a> {
 
 pub type InstanceKlassRef<'memory> = &'memory InstanceKlassDesc<'memory>;
 pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
+pub type ArrayKlassRef<'memory> = &'memory ArrayKlassDesc<'memory>;
 
 #[derive(Debug)]
 pub struct InstanceKlassDesc<'metaspace>{
@@ -170,18 +170,24 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
        self.methods.borrow().get(&unique_key).expect("No method found").clone()
     }
 }
-
 #[derive(Debug)]
-struct ArrayKlassDesc<'metaspace> {
-    component_type: ComponentType,
-    down_dimension_type: Option<&'metaspace ArrayKlassDesc<'metaspace>>
+pub struct ArrayKlassDesc<'memory> {
+    dimension: usize,
+    component_type: ComponentType<'memory>,
 }
-impl<'metaspace> ArrayKlassDesc<'metaspace> {
-    fn get_dimension(&self) -> usize {
-        todo!()
+impl<'memory> ArrayKlassDesc<'memory> {
+    fn multi_dimentsion(dimension: usize, down_array: ArrayKlassRef<'memory>) -> ArrayKlassDesc {
+        ArrayKlassDesc {
+            dimension,
+            component_type: ComponentType::Array(down_array)
+        }
     }
-    fn is_object_array(&self) -> bool {
-        todo!()
+
+    fn object_array(component_klass: InstanceKlassRef<'memory>) -> ArrayKlassDesc {
+        ArrayKlassDesc {
+            dimension: 1,
+            component_type: ComponentType::Object(component_klass)
+        }
     }
 }
 
@@ -211,7 +217,7 @@ impl<'memory> InstanceOopDesc<'memory> {
 
 struct ArrayOopDesc<'heap, 'metaspace> {
     elements: Vec<Oop<'heap>>,
-    klass: ArrayKlassDesc<'metaspace>
+    klass: ArrayKlassRef<'metaspace>
 }
 impl<'heap, 'metaspace> ArrayOopDesc<'heap, 'metaspace> {
     fn get_dimension(&self) -> usize {

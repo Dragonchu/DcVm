@@ -1,4 +1,4 @@
-use crate::runtime_constant_pool::RunTimeConstantPool;
+use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
 
 enum Variable{
     Boolean(bool),
@@ -8,17 +8,18 @@ enum Variable{
     Int(i32),
     Float(f32),
     Reference,
-    ReturnAddress(*const u8),
+    ReturnAddress(usize),
     Long(i64),
-    Double(f64)
+    Double(f64),
+    Padding
 }
 
-struct Frame<'rtcp> {
+struct Frame {
     local_variables: Vec<Variable>,
     operand_stack: Vec<String>,
-    run_time_constant_pool: &'rtcp RunTimeConstantPool 
+    method: Method,
 }
 
-pub struct Stack<'rtcp>{
-    frames: Vec<Frame<'rtcp>>
+pub struct Stack{
+    frames: Vec<Frame>
 }

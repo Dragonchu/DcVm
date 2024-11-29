@@ -11,6 +11,13 @@ pub struct BootstrapClassLoader<'memory> {
     classes: RefCell<HashMap<String, InstanceKlassRef<'memory>>>
 }
 
+pub fn calculate_dimension(class_name: &str) -> usize {
+    if !class_name.starts_with("[") {
+        return 0;
+    }
+    1 + calculate_dimension(&class_name[1..])
+}
+
 impl<'memory> BootstrapClassLoader<'memory> {
     pub fn new(paths: &str) -> BootstrapClassLoader {
         let mut class_path_manager = ClassPathManager::new();
@@ -25,12 +32,20 @@ impl<'memory> BootstrapClassLoader<'memory> {
         if self.classes.borrow().contains_key(class_name) {
             return self.classes.borrow().get(class_name).unwrap();
         }
+        if class_name.starts_with("[") {
+            
+        }
         let class_file = self.class_path_manager.search_class(class_name).expect("msg");
         let instance_klass_ref = method_area.allocate_instance_klass(class_file);
         instance_klass_ref.link_method();
         self.classes.borrow_mut().insert(String::from(class_name), instance_klass_ref);
         instance_klass_ref 
     }
+
+    pub fn do_load_array(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) {
+        
+    }
+
 }
 
 #[cfg(test)]
