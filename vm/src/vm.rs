@@ -21,12 +21,15 @@ impl<'memory> Vm<'memory> {
 
     fn new_string(&'memory self, s: &str) -> InstanceOopRef<'memory> {
         let char_array_klass = self.class_loader.load_array_klass("[C", &self.method_area);
-        let string_klass = self.class_loader.load_instance_klass("Ljava/lang/String", &self.method_area);
+        let string_klass = self.class_loader.load_instance_klass("java/lang/String", &self.method_area);
         let mut chars = char_array_klass.new_instance(s.len());
-        for i in 0..s.len() {
-            chars.set_element_at(i, Oop::Int(0));
+        let char_array: Vec<Oop> = s.encode_utf16().map(|c| Oop::Int(c as i32)).collect();
+        for (index, oop) in char_array.iter().enumerate() {
+            chars.set_element_at(index, oop.clone());
         }
-        let java_string = string_klass.new_instance();
+        let chars_ref = self.heap.allocate_array_oop(chars);
+        let mut java_string = string_klass.new_instance();
+        java_string.set_field_value("java/lang/String", "value", "[C", Oop::Array(chars_ref));
         self.heap.allocate_instance_oop(java_string)
     }
 }
@@ -44,6 +47,13 @@ mod tests {
             std::mem::size_of::<InstanceOopDesc>(),
             std::mem::align_of::<InstanceOopDesc>()
         );
+    }
+
+    #[test]
+    fn new_string_test() {
+        let vm = Vm::new("/home/codespace/java/current/jre/lib/rt.jar");
+        let java_string_oop = vm.new_string("Hello world");
+        println!("{:?}", java_string_oop);
     }
 
 }

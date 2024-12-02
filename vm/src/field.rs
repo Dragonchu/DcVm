@@ -20,8 +20,8 @@ pub enum ValueType{
 
 #[derive(Debug, Clone)]
 pub struct FieldId {
-    offset: usize,
-    field: Field,
+    pub offset: usize,
+    pub field: Field,
 }
 impl FieldId {
     pub fn new(offset: usize, field: Field) -> FieldId {

@@ -1,14 +1,15 @@
-use std::{cell::{Ref, RefCell}, collections::HashMap};
+use std::{cell::{Ref, RefCell}, collections::HashMap, fmt};
 
-use reader::{class_file::ClassFile, constant_pool::ConstantPool, types::U2};
+use reader::{class_file::ClassFile, constant_pool::{ConstantPool, CpInfo}, types::U2};
 
 use crate::{field::{Field, FieldId}, method::Method, runtime_constant_pool::RunTimeConstantPool};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Oop<'memory> {
     Instance(&'memory InstanceOopDesc<'memory>),
     Array(&'memory ArrayOopDesc<'memory>),
-    Int(u32)
+    Int(i32),
+    Default,
 }
 
 impl<'memory> Oop<'memory> {
@@ -173,7 +174,6 @@ pub type ArrayKlassRef<'memory> = &'memory ArrayKlassDesc<'memory>;
 pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
 pub type ArrayOopRef<'memory> = &'memory ArrayOopDesc<'memory>;
 
-#[derive(Debug)]
 pub struct InstanceKlassDesc<'metaspace>{
     class_name: String,
     class_state: ClassState,
@@ -184,6 +184,20 @@ pub struct InstanceKlassDesc<'metaspace>{
     static_fields: RefCell<HashMap<String, FieldId>>,
     instance_fields: RefCell<HashMap<String, FieldId>>,
     class_file: &'metaspace ClassFile,
+}
+impl<'metaspace> fmt::Debug for InstanceKlassDesc<'metaspace> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InstanceKlassDesc")
+        .field("class_name", &self.class_name)
+        .field("class_state", &self.class_state)
+        .field("super_class", &self.super_class)
+        .field("fields_count", &self.fields_count)
+        .field("vtable", &self.vtable)
+        .field("methods", &self.methods)
+        .field("static_fields", &self.static_fields)
+        .field("instance_fields", &self.instance_fields)
+        .finish()
+    }
 }
 
 fn gen_method_key(name: &str, descriptor: &str) -> String {
@@ -206,13 +220,27 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
         }
     }
 
+    pub fn get_instance_field_info(&self, class_name: &str, field_name: &str,descriptor: &str) -> FieldId {
+        let unique_name = Self::gen_field_unique_name(class_name, field_name, descriptor);
+        self.instance_fields.borrow().get(&unique_name).cloned().expect("unknown filed") 
+    }
+
+    pub fn set_instance_field_info(&self, receiver: InstanceOopRef, class_name: &str, field_name: &str, descriptor: &str, value: Oop) {
+        
+        
+    }
+
     pub fn link(&self) {
         self.link_method();
         self.link_fields();
     }
 
-    fn get_class_name(index: U2, cp_pool: &dyn ConstantPool) -> String {
-        cp_pool.get_utf8_string(index)
+    fn get_class_name(this_class: U2, cp_pool: &Vec<CpInfo>) -> String {
+        if let CpInfo::Class { tag: _, name_index } = cp_pool.get((this_class - 1) as usize).expect("Unknown class") {
+            return cp_pool.get((name_index-1) as usize).expect("Unknow class name").to_utf8_string();
+        } else {
+            panic!("Unknown class");
+        }
     }
     
     pub fn link_fields(&self) {
@@ -229,23 +257,21 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
             let field = Field::new(field_info, cp_pool);
             let field_name = field.get_name();
             let field_descriptor = field.get_descriptor();
-            let unique_name = self.gen_field_unique_name(&field_name, &field_descriptor);
-            let mut offset = 0;
+            let unique_name = Self::gen_field_unique_name(&self.class_name, &field_name, &field_descriptor);
             if field.is_static() {
+                let field_id = FieldId::new(static_field_index, field);
+                self.static_fields.borrow_mut().insert(unique_name, field_id);
                 static_field_index += 1;
-                offset = static_field_index;
             } else {
+                let field_id = FieldId::new(instance_field_index, field);
+                self.instance_fields.borrow_mut().insert(unique_name, field_id);
                 instance_field_index += 1;
-                offset = instance_field_index;
             }
-            let field_id = FieldId::new(offset, field);
-            self.static_fields.borrow_mut().insert(unique_name, field_id);
         } 
     }
 
-    pub fn gen_field_unique_name(&self, name: &str, descriptor: &str) -> String{
-        let class_name = &self.class_name;
-        format!("{class_name} {name} {descriptor}")
+    pub fn gen_field_unique_name(class_name: &str, field_name: &str, descriptor: &str) -> String{
+        format!("{class_name} {field_name} {descriptor}")
     }
 
     pub fn link_method(&self) {
@@ -287,7 +313,6 @@ impl<'memory> ArrayKlassDesc<'memory> {
         ArrayOopDesc::new(self, length)
     }
 }
-
 #[derive(Debug)]
 pub struct InstanceOopDesc<'memory> {
     fields: Vec<Oop<'memory>>,
@@ -296,15 +321,16 @@ pub struct InstanceOopDesc<'memory> {
 impl<'memory> InstanceOopDesc<'memory> {
     pub fn new(klass: InstanceKlassRef<'memory>) -> InstanceOopDesc<'memory> {
         InstanceOopDesc {
-            fields: Vec::with_capacity(klass.fields_count),
+            fields: vec![Oop::Default;klass.fields_count],
             klass: klass
         }
     }
     pub fn get_klass(&self) -> InstanceKlassRef {
         self.klass
     }
-    fn set_field_value(&mut self, class_name: &str, field_name: &str, field_descriptor: &str) {
-        todo!()
+    pub fn set_field_value(&mut self, class_name: &str, field_name: &str, field_descriptor: &str, value: Oop<'memory>) {
+        let field_id = self.klass.get_instance_field_info(class_name, field_name, field_descriptor).clone();
+        self.fields.insert(field_id.offset, value);
     }
 
     fn get_field_value(&self, class_name: &str, field_name: &str, field_descriptor: &str) -> &'memory Oop {

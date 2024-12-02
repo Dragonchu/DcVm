@@ -1,6 +1,6 @@
 use std::{cell::{Cell, Ref, RefCell}, fmt::format};
 
-use reader::{attribute_info::AttributeInfo, constant_pool::{ConstantPool, CpInfo, CpInfoData}, method_info::MethodInfo, types::{U1, U2, U4}};
+use reader::{attribute_info::AttributeInfo, constant_pool::{ConstantPool, CpInfo}, method_info::MethodInfo, types::{U1, U2, U4}};
 
 use crate::instructions::Instruction;
 #[derive(Debug, Clone)]
