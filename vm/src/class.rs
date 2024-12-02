@@ -198,6 +198,10 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
             class_file: class_file
         }
     }
+    
+    pub fn link_fields(&self) {
+        
+    }
 
     pub fn link_method(&self) {
         let cp_pool = &self.class_file.constant_pool;

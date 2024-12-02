@@ -10,3 +10,4 @@ mod stack;
 mod vm;
 mod method;
 mod instructions;
+mod field;

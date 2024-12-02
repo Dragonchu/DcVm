@@ -1,3 +1,4 @@
 {
     "editor.inlayHints.enabled": "offUnlessPressed",
+    "rust-analyzer.checkOnSave": true,
 }
