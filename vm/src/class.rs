@@ -5,8 +5,22 @@ use reader::{class_file::ClassFile, types::U2};
 use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
 
 #[derive(Debug)]
-enum Oop<'memory> {
-    InstanceOop(&'memory InstanceOopDesc<'memory>)
+pub enum Oop<'memory> {
+    Instance(&'memory InstanceOopDesc<'memory>),
+    Array(&'memory ArrayOopDesc<'memory>)
+}
+
+impl<'memory> Oop<'memory> {
+    pub fn get_klass(&self) -> Klass<'memory> {
+        match self {
+            Oop::Instance(oop_desc) => {
+                Klass::Instance(oop_desc.get_klass())
+            },
+            Oop::Array(oop_desc) => {
+                Klass::Array(oop_desc.get_klass())
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -137,9 +151,23 @@ pub enum Klass<'memory> {
     Array(ArrayKlassRef<'memory>)
 }
 
+impl<'memory> Klass<'memory> {
+    pub fn get_method(&self, method_name: &str, descriptor: &str) -> Method {
+        match self {
+            Klass::Instance(klass) => {
+               klass.get_method(method_name, descriptor) 
+            },
+            _ => {
+                panic!("Do not support")
+            }
+        }
+    }
+}
+
 pub type InstanceKlassRef<'memory> = &'memory InstanceKlassDesc<'memory>;
 pub type ArrayKlassRef<'memory> = &'memory ArrayKlassDesc<'memory>;
 pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
+pub type ArrayOopRef<'memory> = &'memory ArrayOopDesc<'memory>;
 
 #[derive(Debug)]
 pub struct InstanceKlassDesc<'metaspace>{
@@ -223,7 +251,8 @@ impl<'memory> InstanceOopDesc<'memory> {
     }
 }
 
-struct ArrayOopDesc<'memory> {
+#[derive(Debug)]
+pub struct ArrayOopDesc<'memory> {
     elements: Vec<Oop<'memory>>,
     klass: ArrayKlassRef<'memory>
 }
@@ -234,5 +263,9 @@ impl<'memory> ArrayOopDesc<'memory> {
             elements: Vec::with_capacity(dimension),
             klass
         }
+    }
+
+    pub fn get_klass(&self) -> ArrayKlassRef<'memory> {
+        self.klass
     }
 }
