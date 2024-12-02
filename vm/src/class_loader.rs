@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, path::Component};
+use std::{array, cell::RefCell, collections::HashMap, path::Component};
 
 use reader::{class_file::ClassFile, class_path_manager::{self, ClassPathManager}};
 use typed_arena::Arena;
@@ -35,6 +35,26 @@ impl<'memory> BootstrapClassLoader<'memory> {
         let klass = self.do_load(class_name, method_area);
         self.classes.borrow_mut().insert(String::from(class_name), klass);
         klass
+    }
+
+    pub fn load_instance_klass(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> InstanceKlassRef<'memory> {
+        if self.classes.borrow().contains_key(class_name) {
+            let klass = self.classes.borrow().get(class_name).unwrap().clone();
+            if let Klass::Instance(instance_klass) = klass {
+                return instance_klass;
+            }
+        }
+        self.do_load_instance(class_name, method_area)
+    }
+
+    pub fn load_array_klass(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> ArrayKlassRef<'memory> {
+        if self.classes.borrow().contains_key(class_name) {
+            let klass = self.classes.borrow().get(class_name).unwrap().clone();
+            if let Klass::Array(array_klass) = klass {
+                return array_klass;
+            }
+        } 
+        self.do_load_array(class_name, method_area)
     }
 
     fn do_load(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> Klass<'memory> {

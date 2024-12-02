@@ -7,7 +7,8 @@ use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
 #[derive(Debug)]
 pub enum Oop<'memory> {
     Instance(&'memory InstanceOopDesc<'memory>),
-    Array(&'memory ArrayOopDesc<'memory>)
+    Array(&'memory ArrayOopDesc<'memory>),
+    Int(u32)
 }
 
 impl<'memory> Oop<'memory> {
@@ -18,6 +19,9 @@ impl<'memory> Oop<'memory> {
             },
             Oop::Array(oop_desc) => {
                 Klass::Array(oop_desc.get_klass())
+            },
+            _ => {
+                panic!("primitive value do not have class")
             }
         }
     }
@@ -208,6 +212,10 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
        let unique_key = gen_method_key(method_name, descriptor);
        self.methods.borrow().get(&unique_key).expect("No method found").clone()
     }
+
+    pub fn new_instance(&self) -> InstanceOopDesc {
+        InstanceOopDesc::new(self)
+    }
 }
 #[derive(Debug)]
 pub struct ArrayKlassDesc<'memory> {
@@ -224,6 +232,10 @@ impl<'memory> ArrayKlassDesc<'memory> {
 
     pub fn get_dimension(&self) -> usize {
         self.dimension
+    }
+
+    pub fn new_instance(&'memory self, length: usize) -> ArrayOopDesc<'memory> {
+        ArrayOopDesc::new(self, length)
     }
 }
 
@@ -257,15 +269,18 @@ pub struct ArrayOopDesc<'memory> {
     klass: ArrayKlassRef<'memory>
 }
 impl<'memory> ArrayOopDesc<'memory> {
-    pub fn new(klass: ArrayKlassRef<'memory>) -> ArrayOopDesc<'memory> {
-        let dimension = klass.get_dimension();
+    pub fn new(klass: ArrayKlassRef<'memory>, length: usize) -> ArrayOopDesc<'memory> {
         ArrayOopDesc{
-            elements: Vec::with_capacity(dimension),
+            elements: Vec::with_capacity(length),
             klass
         }
     }
 
     pub fn get_klass(&self) -> ArrayKlassRef<'memory> {
         self.klass
+    }
+
+    pub fn set_element_at(&mut self, position: usize, element: Oop<'memory>) {
+        self.elements.insert(position, element);
     }
 }

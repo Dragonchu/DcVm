@@ -18,17 +18,16 @@ impl<'memory> Vm<'memory> {
             class_loader: BootstrapClassLoader::new(paths),
         }
     }
-    fn new_oop(&'memory self, class_name: &str) -> Oop<'memory> {
-        let class = self.class_loader.load(class_name, &self.method_area);
-        match class {
-            Klass::Instance(instance_klass) => Oop::Instance(
-                self.heap
-                    .allocate_instance_oop(InstanceOopDesc::new(instance_klass)),
-            ),
-            Klass::Array(array_klass) => {
-                Oop::Array(self.heap.allocate_array_oop(ArrayOopDesc::new(array_klass)))
-            }
+
+    fn new_string(&'memory self, s: &str) -> InstanceOopRef<'memory> {
+        let char_array_klass = self.class_loader.load_array_klass("[C", &self.method_area);
+        let string_klass = self.class_loader.load_instance_klass("Ljava/lang/String", &self.method_area);
+        let mut chars = char_array_klass.new_instance(s.len());
+        for i in 0..s.len() {
+            chars.set_element_at(i, Oop::Int(0));
         }
+        let java_string = string_klass.new_instance();
+        self.heap.allocate_instance_oop(java_string)
     }
 }
 
@@ -36,12 +35,6 @@ impl<'memory> Vm<'memory> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    #[test]
-    fn parse_main_class() {
-        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
-        let oop = vm.new_oop("Main");
-        println!("{:?}", oop);
-    }
 
     #[test]
     fn layout_test() {
@@ -53,39 +46,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn get_main_method() {
-        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
-        let oop = vm.new_oop("Main");
-        let klass = oop.get_klass();
-        let method = klass.get_method("<init>", "()V");
-        println!("{:?}", method);
-    }
-
-    #[test]
-    fn parse_codes() {
-        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
-        let oop = vm.new_oop("Main");
-        let klass = oop.get_klass();
-        let method = klass.get_method("<init>", "()V");
-        println!("{:?}", method);
-        let code = method.get_code();
-        for instruction in code.byte_codes.iter() {
-            println!("{:?}", instruction);
-        }
-    }
-
-    #[test]
-    fn load_string_array() {
-        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
-        let oop = vm.new_oop("[Ljava/lang/String");
-        match oop {
-            Oop::Instance(instance) => {
-                println!("why?");
-            }
-            Oop::Array(array) => {
-                println!("yes");
-            }
-        }
-    }
 }
