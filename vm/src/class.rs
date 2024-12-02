@@ -1,8 +1,8 @@
 use std::{cell::{Ref, RefCell}, collections::HashMap};
 
-use reader::{class_file::ClassFile, types::U2};
+use reader::{class_file::ClassFile, constant_pool::ConstantPool, types::U2};
 
-use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
+use crate::{field::{Field, FieldId}, method::Method, runtime_constant_pool::RunTimeConstantPool};
 
 #[derive(Debug)]
 pub enum Oop<'memory> {
@@ -175,11 +175,14 @@ pub type ArrayOopRef<'memory> = &'memory ArrayOopDesc<'memory>;
 
 #[derive(Debug)]
 pub struct InstanceKlassDesc<'metaspace>{
+    class_name: String,
     class_state: ClassState,
     super_class: Option<&'metaspace InstanceKlassDesc<'metaspace>>,
     fields_count: usize,
     vtable: RefCell<HashMap<String, Method>>,
     methods: RefCell<HashMap<String, Method>>,
+    static_fields: RefCell<HashMap<String, FieldId>>,
+    instance_fields: RefCell<HashMap<String, FieldId>>,
     class_file: &'metaspace ClassFile,
 }
 
@@ -189,18 +192,60 @@ fn gen_method_key(name: &str, descriptor: &str) -> String {
 
 impl<'metaspace> InstanceKlassDesc<'metaspace> {
     pub fn new(class_file: &'metaspace ClassFile) -> InstanceKlassDesc<'metaspace> {
+        let class_name = Self::get_class_name(class_file.this_class, &class_file.constant_pool);
         InstanceKlassDesc {
+            class_name: class_name.clone(),
             class_state: ClassState::Allocated,
             super_class: None,
             fields_count: class_file.fields_count as usize,
             vtable: RefCell::new(HashMap::new()),
             methods: RefCell::new(HashMap::new()),
+            static_fields: RefCell::new(HashMap::new()),
+            instance_fields: RefCell::new(HashMap::new()),
             class_file: class_file
         }
     }
+
+    pub fn link(&self) {
+        self.link_method();
+        self.link_fields();
+    }
+
+    fn get_class_name(index: U2, cp_pool: &dyn ConstantPool) -> String {
+        cp_pool.get_utf8_string(index)
+    }
     
     pub fn link_fields(&self) {
-        
+        if let Some(super_class_desc) = self.super_class {
+            let super_class_fields = super_class_desc.instance_fields.borrow();
+            for (key, value) in super_class_fields.iter() {
+                self.instance_fields.borrow_mut().insert(key.clone(), value.clone());
+            }
+        }
+        let mut instance_field_index = self.instance_fields.borrow().len();
+        let mut static_field_index = 0;
+        let cp_pool = &self.class_file.constant_pool;
+        for field_info in &self.class_file.fields {
+            let field = Field::new(field_info, cp_pool);
+            let field_name = field.get_name();
+            let field_descriptor = field.get_descriptor();
+            let unique_name = self.gen_field_unique_name(&field_name, &field_descriptor);
+            let mut offset = 0;
+            if field.is_static() {
+                static_field_index += 1;
+                offset = static_field_index;
+            } else {
+                instance_field_index += 1;
+                offset = instance_field_index;
+            }
+            let field_id = FieldId::new(offset, field);
+            self.static_fields.borrow_mut().insert(unique_name, field_id);
+        } 
+    }
+
+    pub fn gen_field_unique_name(&self, name: &str, descriptor: &str) -> String{
+        let class_name = &self.class_name;
+        format!("{class_name} {name} {descriptor}")
     }
 
     pub fn link_method(&self) {

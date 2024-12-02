@@ -67,7 +67,7 @@ impl<'memory> BootstrapClassLoader<'memory> {
     pub fn do_load_instance(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> InstanceKlassRef<'memory> {
         let class_file = self.class_path_manager.search_class(class_name).expect("msg");
         let instance_klass_ref = method_area.allocate_instance_klass(class_file);
-        instance_klass_ref.link_method();
+        instance_klass_ref.link();
         instance_klass_ref 
     }
 
