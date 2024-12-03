@@ -1,14 +1,17 @@
+use std::cell::RefCell;
+
 use crate::{
     class::{ArrayKlassRef, ArrayOopDesc, ArrayOopRef, InstanceOopDesc, InstanceOopRef, Klass, Oop},
     class_loader::BootstrapClassLoader,
     heap::Heap,
-    method_area::MethodArea,
+    method_area::MethodArea, stack::Stack,
 };
 
 struct Vm<'memory> {
     heap: Heap<'memory>,
     method_area: MethodArea<'memory>,
     class_loader: BootstrapClassLoader<'memory>,
+    stack: Stack<'memory>
 }
 impl<'memory> Vm<'memory> {
     fn new(paths: &'memory str) -> Vm<'memory> {
@@ -16,7 +19,17 @@ impl<'memory> Vm<'memory> {
             heap: Heap::new(),
             method_area: MethodArea::new(),
             class_loader: BootstrapClassLoader::new(paths),
+            stack: Stack::new()
         }
+    }
+
+    fn invoke_main(&'memory self, args: Vec<&str>) {
+        let args_oop = self.new_string_array(args);
+        let main_class = self.class_loader.load_instance_klass("Main", &self.method_area);
+        let main_method = main_class.get_method("main", "([Ljava/lang/String;)V");
+        let args_vec =  vec![Oop::Array(args_oop)];
+        self.stack.add_frame(None, main_method, args_vec.clone());
+        println!("{:?}", self.stack);
     }
 
     fn new_string_array(&'memory self, args: Vec<&str>) -> ArrayOopRef<'memory> {
@@ -74,4 +87,10 @@ mod tests {
         println!("{:?}", args_oop_array);
     }
 
+    #[test]
+    fn invoke_main_test() {
+        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
+        let args = vec!["hello", "world"];
+        vm.invoke_main(args);
+    }
 }

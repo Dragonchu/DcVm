@@ -1,3 +1,6 @@
+use core::fmt;
+use std::cell::RefCell;
+
 use typed_arena::Arena;
 
 use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
@@ -17,6 +20,7 @@ enum Variable{
     Uninitialized,
 }
 
+#[derive(Debug)]
 struct Frame<'memory> {
     local_variables: Vec<Oop<'memory>>,
     operand_stack: Vec<String>,
@@ -24,11 +28,24 @@ struct Frame<'memory> {
 }
 
 pub struct Stack<'memory>{
-    frames: Vec<&'memory Frame<'memory>>,
+    frames: RefCell<Vec<&'memory Frame<'memory>>>,
     allocator: Arena<Frame<'memory>>,
 }
+impl<'memory> fmt::Debug for Stack<'memory> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Stack")
+        .field("frames", &self.frames)
+        .finish()
+    }
+}
 impl<'memory> Stack<'memory> {
-    pub fn add_frame(&'memory mut self, receiver: Option<Oop<'memory>>, method: Method, args: Vec<Oop<'memory>>) {
+    pub fn new() -> Stack<'memory>{
+        Stack {
+            frames: RefCell::new(Vec::new()),
+            allocator: Arena::new()
+        }
+    }
+    pub fn add_frame(&'memory self, receiver: Option<Oop<'memory>>, method: Method, args: Vec<Oop<'memory>>) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
         let max_stack = code.max_stack as usize; 
@@ -42,6 +59,6 @@ impl<'memory> Stack<'memory> {
             method
         };
         let frame_ref = self.allocator.alloc(frame);
-        self.frames.push(frame_ref)
+        self.frames.borrow_mut().push(frame_ref)
     }
 }
