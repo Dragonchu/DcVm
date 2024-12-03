@@ -206,4 +206,3 @@ pub enum Instruction {
     Wide
 }
 
-

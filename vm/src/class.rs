@@ -206,7 +206,7 @@ fn gen_method_key(name: &str, descriptor: &str) -> String {
 
 impl<'metaspace> InstanceKlassDesc<'metaspace> {
     pub fn new(class_file: &'metaspace ClassFile) -> InstanceKlassDesc<'metaspace> {
-        let class_name = Self::get_class_name(class_file.this_class, &class_file.constant_pool);
+        let class_name = Self::get_this_class_name(class_file.this_class, &class_file.constant_pool);
         InstanceKlassDesc {
             class_name: class_name.clone(),
             class_state: ClassState::Allocated,
@@ -218,6 +218,10 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
             instance_fields: RefCell::new(HashMap::new()),
             class_file: class_file
         }
+    }
+
+    pub fn get_class_name(&self) -> String {
+        self.class_name.clone()
     }
 
     pub fn get_instance_field_info(&self, class_name: &str, field_name: &str,descriptor: &str) -> FieldId {
@@ -235,12 +239,28 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
         self.link_fields();
     }
 
-    fn get_class_name(this_class: U2, cp_pool: &Vec<CpInfo>) -> String {
+    fn get_this_class_name(this_class: U2, cp_pool: &Vec<CpInfo>) -> String {
         if let CpInfo::Class { tag: _, name_index } = cp_pool.get((this_class - 1) as usize).expect("Unknown class") {
             return cp_pool.get((name_index-1) as usize).expect("Unknow class name").to_utf8_string();
         } else {
             panic!("Unknown class");
         }
+    }
+    
+    pub fn get_utf8_string(&self, index: usize) -> String {
+        return self.class_file.constant_pool.get((index-1) as usize).expect("Unknow class name").to_utf8_string();
+    }
+
+    pub fn get_field_name(&self, field_index: usize) -> String {
+        if let CpInfo::FieldRef { tag, class_index, name_and_type_index } = self.class_file.constant_pool.get((field_index-1) as usize).expect("Unknow field") {
+            return self.get_utf8_string(name_and_type_index.clone() as usize);
+        } else {
+            panic!("Not field")
+        }
+    }
+
+    pub fn get_field_info(&self, field_index: U2) -> (String,String,String) {
+        return self.class_file.constant_pool.get_field_info(field_index);
     }
     
     pub fn link_fields(&self) {

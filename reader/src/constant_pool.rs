@@ -8,7 +8,7 @@ impl CpInfo {
         if let CpInfo::Utf8 { tag:_, length:_, bytes } = self {
            str::from_utf8(bytes).unwrap().to_string()
         } else {
-            panic!("wrong type")
+            panic!("wrong type: {:?}", self)
         }
     }
 }
@@ -81,6 +81,33 @@ pub enum CpInfo {
     Padding,
 }
 
+pub trait ConstantPool {
+    fn get_utf8_string(&self, index: U2) -> String;
+    fn get_field_info(&self, field_index: U2) -> (String,String, String);
+}
+
+impl ConstantPool for Vec<CpInfo> {
+    fn get_utf8_string(&self, index: U2) -> String {
+        let cp_info = self.get((index - 1) as usize).expect("Unknow string");
+        cp_info.to_utf8_string()
+    }
+    fn get_field_info(&self, field_index: U2) -> (String,String, String){
+        if let CpInfo::FieldRef { tag, class_index, name_and_type_index } = self.get((field_index-1) as usize).expect("Unknow field") {
+            if let CpInfo::Class { tag, name_index: class_name_index } = self.get((class_index -1) as usize).expect("Unknown class") {
+                if let CpInfo::NameAndType { tag, name_index, descriptor_index } = self.get((name_and_type_index-1) as usize).expect("Unknow name and type") {
+                    (self.get_utf8_string(class_name_index.clone()),self.get_utf8_string(name_index.clone()), self.get_utf8_string(descriptor_index.clone()))
+                }else {
+                    panic!("Wrong type")
+                }
+            }else {
+                panic!("wrong type")
+            }
+        }else {
+            panic!("Wrong type")
+        }
+    }
+}
+
 impl fmt::Debug for CpInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -147,13 +174,4 @@ impl TryFrom<u8> for ConstantInfoTag {
     }
 }
 
-pub trait ConstantPool {
-    fn get_utf8_string(&self, index: U2) -> String;
-}
 
-impl ConstantPool for Vec<CpInfo> {
-    fn get_utf8_string(&self, index: U2) -> String {
-        let cp_info = self.get((index - 1) as usize).expect("Unknow string");
-        cp_info.to_utf8_string()
-    }
-}

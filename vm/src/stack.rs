@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use typed_arena::Arena;
 
 use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
-use crate::class::Oop;
+use crate::class::{InstanceKlassRef, Oop};
 enum Variable{
     Boolean(bool),
     Byte(i8),
@@ -21,10 +21,19 @@ enum Variable{
 }
 
 #[derive(Debug)]
-struct Frame<'memory> {
+pub struct Frame<'memory> {
     local_variables: Vec<Oop<'memory>>,
-    operand_stack: Vec<String>,
+    operand_stack: Vec<Oop<'memory>>,
     method: Method,
+    class: InstanceKlassRef<'memory>
+}
+impl<'memory> Frame<'memory> {
+    pub fn get_cur_method(&self) -> Method {
+        self.method.clone()
+    }
+    pub fn get_cur_class(&self) -> InstanceKlassRef<'_>{
+        self.class
+    }
 }
 
 pub struct Stack<'memory>{
@@ -45,7 +54,7 @@ impl<'memory> Stack<'memory> {
             allocator: Arena::new()
         }
     }
-    pub fn add_frame(&'memory self, receiver: Option<Oop<'memory>>, method: Method, args: Vec<Oop<'memory>>) {
+    pub fn add_frame(&'memory self, receiver: Option<Oop<'memory>>, method: Method, class: InstanceKlassRef<'memory>, args: Vec<Oop<'memory>>) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
         let max_stack = code.max_stack as usize; 
@@ -56,9 +65,18 @@ impl<'memory> Stack<'memory> {
         let frame = Frame {
             local_variables: locals.clone(),
             operand_stack: Vec::with_capacity(max_stack),
-            method
+            method,
+            class
         };
         let frame_ref = self.allocator.alloc(frame);
         self.frames.borrow_mut().push(frame_ref)
+    }
+
+    pub fn pop_frame(&self) {
+        self.frames.borrow_mut().pop();
+    }
+
+    pub fn cur_frame(&self) -> &Frame{
+        self.frames.borrow().iter().rev().next().expect("No more frame")
     }
 }
