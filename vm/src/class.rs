@@ -9,7 +9,7 @@ pub enum Oop<'memory> {
     Instance(&'memory InstanceOopDesc<'memory>),
     Array(&'memory ArrayOopDesc<'memory>),
     Int(i32),
-    Default,
+    Uninitialized,
 }
 
 impl<'memory> Oop<'memory> {
@@ -321,7 +321,7 @@ pub struct InstanceOopDesc<'memory> {
 impl<'memory> InstanceOopDesc<'memory> {
     pub fn new(klass: InstanceKlassRef<'memory>) -> InstanceOopDesc<'memory> {
         InstanceOopDesc {
-            fields: vec![Oop::Default;klass.fields_count],
+            fields: vec![Oop::Uninitialized;klass.fields_count],
             klass: klass
         }
     }
@@ -346,7 +346,7 @@ pub struct ArrayOopDesc<'memory> {
 impl<'memory> ArrayOopDesc<'memory> {
     pub fn new(klass: ArrayKlassRef<'memory>, length: usize) -> ArrayOopDesc<'memory> {
         ArrayOopDesc{
-            elements: Vec::with_capacity(length),
+            elements: vec![Oop::Uninitialized;length],
             klass
         }
     }

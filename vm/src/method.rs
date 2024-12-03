@@ -307,8 +307,8 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Code {
-    max_stack: U2,
-    max_locals: U2,
+    pub max_stack: U2,
+    pub max_locals: U2,
     pub byte_codes: ByteCodes,
     exception_table_length: U2,
     exception_table: Vec<ExceptionEntry>
