@@ -31,7 +31,7 @@ impl<'memory> Frame<'memory> {
     pub fn get_cur_method(&self) -> Method {
         self.method.clone()
     }
-    pub fn get_cur_class(&self) -> InstanceKlassRef<'_>{
+    pub fn get_cur_class(&'memory self) -> InstanceKlassRef<'_>{
         self.class
     }
 }

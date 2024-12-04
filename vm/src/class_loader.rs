@@ -6,9 +6,9 @@ use typed_arena::Arena;
 use crate::{class::{self, ArrayKlassRef, ComponentType, InstanceKlassDesc, InstanceKlassRef, Klass}, method_area::MethodArea};
 
 
-pub struct BootstrapClassLoader<'memory> {
+pub struct BootstrapClassLoader<'klass> {
     class_path_manager: ClassPathManager,
-    classes: RefCell<HashMap<String, Klass<'memory>>>
+    classes: RefCell<HashMap<String, Klass<'klass>>>
 }
 
 pub fn calculate_dimension(class_name: &str) -> usize {
@@ -18,7 +18,7 @@ pub fn calculate_dimension(class_name: &str) -> usize {
     1 + calculate_dimension(&class_name[1..])
 }
 
-impl<'memory> BootstrapClassLoader<'memory> {
+impl<'klass> BootstrapClassLoader<'klass> {
     pub fn new(paths: &str) -> BootstrapClassLoader {
         let mut class_path_manager = ClassPathManager::new();
         class_path_manager.add_class_paths(paths);
@@ -28,7 +28,7 @@ impl<'memory> BootstrapClassLoader<'memory> {
         } 
     }
 
-    pub fn load(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> Klass<'memory> {
+    pub fn load(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> Klass<'klass> {
         if self.classes.borrow().contains_key(class_name) {
             return self.classes.borrow().get(class_name).unwrap().clone();
         }
@@ -37,7 +37,7 @@ impl<'memory> BootstrapClassLoader<'memory> {
         klass
     }
 
-    pub fn load_instance_klass(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> InstanceKlassRef<'memory> {
+    pub fn load_instance_klass(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> InstanceKlassRef<'_, 'klass, '_> {
         if self.classes.borrow().contains_key(class_name) {
             let klass = self.classes.borrow().get(class_name).unwrap().clone();
             if let Klass::Instance(instance_klass) = klass {
@@ -47,7 +47,7 @@ impl<'memory> BootstrapClassLoader<'memory> {
         self.do_load_instance(class_name, method_area)
     }
 
-    pub fn load_array_klass(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> ArrayKlassRef<'memory> {
+    pub fn load_array_klass(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> ArrayKlassRef<'klass> {
         if self.classes.borrow().contains_key(class_name) {
             let klass = self.classes.borrow().get(class_name).unwrap().clone();
             if let Klass::Array(array_klass) = klass {
@@ -57,21 +57,21 @@ impl<'memory> BootstrapClassLoader<'memory> {
         self.do_load_array(class_name, method_area)
     }
 
-    fn do_load(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> Klass<'memory> {
+    fn do_load(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> Klass<'klass> {
         if class_name.starts_with("[") {
            return Klass::Array(self.do_load_array(class_name, method_area));
         }
         Klass::Instance(self.do_load_instance(class_name, method_area))
     }
 
-    pub fn do_load_instance(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> InstanceKlassRef<'memory> {
+    pub fn do_load_instance(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> InstanceKlassRef<'klass> {
         let class_file = self.class_path_manager.search_class(class_name).expect("msg");
         let instance_klass_ref = method_area.allocate_instance_klass(class_file);
         instance_klass_ref.link();
         instance_klass_ref 
     }
 
-    pub fn do_load_array(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> ArrayKlassRef<'memory>{
+    pub fn do_load_array(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> ArrayKlassRef<'klass>{
         let dimension = calculate_dimension(class_name);
         if dimension == 1 {
             method_area.allocate_array_klass(1, self.do_load_component_type(&class_name[1..], method_area))
@@ -80,7 +80,7 @@ impl<'memory> BootstrapClassLoader<'memory> {
         }
     }
 
-    fn do_load_component_type(&self, class_name: &str, method_area: &'memory MethodArea<'memory>) -> ComponentType<'memory> {
+    fn do_load_component_type(&self, class_name: &str, method_area: &'klass MethodArea<'klass,'_>) -> ComponentType<'klass> {
         if class_name.starts_with("L") {
             let instance_klass = self.do_load_instance(&class_name[1..], method_area);
             ComponentType::Object(instance_klass)
