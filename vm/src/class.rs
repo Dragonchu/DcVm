@@ -56,6 +56,76 @@ enum ClassState {
     Allocated,
 }
 
+impl<'a> KlassAbility<'a> for CoreKlassDesc<'a> {
+    fn get_class_state(&self) -> ClassState {
+        self.class_state
+    }
+
+    fn set_class_state(&mut self, class_state: ClassState) {
+        self.class_state = class_state;
+    }
+
+    fn get_access_flag(&self) -> U2 {
+        self.access_flag
+    }
+
+    fn set_access_flag(&mut self, access_flag: U2) {
+        self.access_flag = access_flag;
+    }
+
+    fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn set_name(&mut self, name: &str) {
+        self.name = String::from(name)
+    }
+
+    fn get_class_type(&self) -> ClassType {
+        self.class_type
+    }
+
+    fn set_class_type(&mut self, class_type: ClassType) {
+        self.class_type = class_type
+    }
+
+    fn get_super_class(&'a self) -> Option<&'a InstanceKlassDesc> {
+        self.super_class
+    }
+
+    fn set_super_class(&'a mut self, super_class: &'a InstanceKlassDesc) {
+        self.super_class = Some(super_class)
+    }
+
+    fn is_public(&self) {
+        todo!()
+    }
+
+    fn is_private(&self) {
+        todo!()
+    }
+
+    fn is_protected(&self) {
+        todo!()
+    }
+
+    fn is_final(&self) {
+        todo!()
+    }
+
+    fn is_static(&self) {
+        todo!()
+    }
+
+    fn is_abstract(&self) {
+        todo!()
+    }
+
+    fn is_interface(&self) {
+        todo!()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Klass<'memory> {
     Instance(InstanceKlassRef<'memory>),
@@ -86,6 +156,7 @@ pub struct InstanceKlassDesc<'metaspace> {
     vtable: RefCell<HashMap<String, Method>>,
     methods: RefCell<HashMap<String, Method>>,
     static_fields: RefCell<HashMap<String, FieldId>>,
+    static_values: RefCell<HashMap<String, Oop<'metaspace>>>,
     instance_fields: RefCell<HashMap<String, FieldId>>,
     class_file: &'metaspace ClassFile,
 }
@@ -120,8 +191,9 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
             vtable: RefCell::new(HashMap::new()),
             methods: RefCell::new(HashMap::new()),
             static_fields: RefCell::new(HashMap::new()),
+            static_values: RefCell::new(HashMap::new()),
             instance_fields: RefCell::new(HashMap::new()),
-            class_file: class_file,
+            class_file,
         }
     }
 
