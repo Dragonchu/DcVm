@@ -1,7 +1,9 @@
-use std::cell::RefCell;
-
 use crate::{
-    class::{ArrayKlassRef, ArrayOopDesc, ArrayOopRef, InstanceOopDesc, InstanceOopRef, Klass, Oop}, class_loader::BootstrapClassLoader, heap::Heap, jvm_thread::JvmThread, method_area::MethodArea, stack::Stack
+    class::{ArrayOopRef, InstanceOopRef, Oop},
+    class_loader::BootstrapClassLoader,
+    heap::Heap,
+    jvm_thread::JvmThread,
+    method_area::MethodArea,
 };
 
 struct Vm<'memory> {
@@ -20,15 +22,19 @@ impl<'memory> Vm<'memory> {
 
     fn invoke_main(&'memory self, args: Vec<&str>) {
         let args_oop = self.new_string_array(args);
-        let main_class = self.class_loader.load_instance_klass("Main", &self.method_area);
+        let main_class = self
+            .class_loader
+            .load_instance_klass("Main", &self.method_area);
         let main_method = main_class.get_method("main", "([Ljava/lang/String;)V");
-        let args_vec =  vec![Oop::Array(args_oop)];
+        let args_vec = vec![Oop::Array(args_oop)];
         let java_main_thread = JvmThread::new(&self.class_loader, &self.method_area);
-        java_main_thread.invoke(None, main_method, main_class,args_vec.clone());
+        java_main_thread.invoke(None, main_method, main_class, args_vec.clone());
     }
 
     fn new_string_array(&'memory self, args: Vec<&str>) -> ArrayOopRef<'memory> {
-        let string_array_class = self.class_loader.load_array_klass("[Ljava/lang/String", &self.method_area);
+        let string_array_class = self
+            .class_loader
+            .load_array_klass("[Ljava/lang/String", &self.method_area);
         let mut string_array_oop = string_array_class.new_instance(args.len());
         for (index, s) in args.iter().enumerate() {
             let arg_oop = self.new_string(s);
@@ -39,7 +45,9 @@ impl<'memory> Vm<'memory> {
 
     fn new_string(&'memory self, s: &str) -> InstanceOopRef<'memory> {
         let char_array_klass = self.class_loader.load_array_klass("[C", &self.method_area);
-        let string_klass = self.class_loader.load_instance_klass("java/lang/String", &self.method_area);
+        let string_klass = self
+            .class_loader
+            .load_instance_klass("java/lang/String", &self.method_area);
         let mut chars = char_array_klass.new_instance(s.len());
         let char_array: Vec<Oop> = s.encode_utf16().map(|c| Oop::Int(c as i32)).collect();
         for (index, oop) in char_array.iter().enumerate() {
@@ -54,12 +62,11 @@ impl<'memory> Vm<'memory> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::path::PathBuf;
+    use crate::class::InstanceOopDesc;
+    use crate::vm::Vm;
 
     #[test]
     fn layout_test() {
-        use std::mem;
         println!(
             "size: {}, align: {}",
             std::mem::size_of::<InstanceOopDesc>(),
