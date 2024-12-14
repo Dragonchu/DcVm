@@ -1,8 +1,4 @@
-use std::{
-    cell::{Ref, RefCell},
-    collections::HashMap,
-    fmt,
-};
+use std::{cell::RefCell, collections::HashMap, fmt};
 
 use reader::{
     class_file::ClassFile,
@@ -13,19 +9,32 @@ use reader::{
 use crate::{
     field::{Field, FieldId},
     method::Method,
-    runtime_constant_pool::RunTimeConstantPool,
 };
 
-#[derive(Debug, Clone)]
-pub enum Oop<'memory> {
-    Instance(&'memory InstanceOopDesc<'memory>),
-    Array(&'memory ArrayOopDesc<'memory>),
+use gc::{Finalize, Gc, GcCell, Trace};
+
+#[derive(Debug, Clone, Trace, Finalize)]
+pub enum Oop {
+    Instance(InstanceOopRef),
+    Array(ArrayOopRef),
     Int(i32),
     Uninitialized,
 }
 
-impl<'memory> Oop<'memory> {
-    pub fn get_klass(&self) -> Klass<'memory> {
+#[derive(Clone, Debug)]
+pub enum Klass {
+    Instance(InstanceKlassRef),
+    Array(ArrayKlassRef),
+}
+
+pub type InstanceKlassRef = Gc<GcCell<InstanceKlassDesc>>;
+pub type ArrayKlassRef = Gc<GcCell<ArrayKlassDesc>>;
+pub type InstanceOopRef = Gc<InstanceOopDesc>;
+pub type ArrayOopRef = Gc<ArrayOopDesc>;
+pub type ClassFileRef = Box<ClassFile>;
+
+impl Oop {
+    pub fn get_klass(&self) -> Klass {
         match self {
             Oop::Instance(oop_desc) => Klass::Instance(oop_desc.get_klass()),
             Oop::Array(oop_desc) => Klass::Array(oop_desc.get_klass()),
@@ -37,9 +46,9 @@ impl<'memory> Oop<'memory> {
 }
 
 #[derive(Debug)]
-pub enum ComponentType<'memory> {
-    Object(InstanceKlassRef<'memory>),
-    Array(ArrayKlassRef<'memory>),
+pub enum ComponentType {
+    Object(InstanceKlassRef),
+    Array(ArrayKlassRef),
     Byte,
     Boolean,
     Short,
@@ -51,91 +60,15 @@ pub enum ComponentType<'memory> {
     Void,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Trace, Finalize)]
 enum ClassState {
     Allocated,
 }
 
-impl<'a> KlassAbility<'a> for CoreKlassDesc<'a> {
-    fn get_class_state(&self) -> ClassState {
-        self.class_state
-    }
-
-    fn set_class_state(&mut self, class_state: ClassState) {
-        self.class_state = class_state;
-    }
-
-    fn get_access_flag(&self) -> U2 {
-        self.access_flag
-    }
-
-    fn set_access_flag(&mut self, access_flag: U2) {
-        self.access_flag = access_flag;
-    }
-
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn set_name(&mut self, name: &str) {
-        self.name = String::from(name)
-    }
-
-    fn get_class_type(&self) -> ClassType {
-        self.class_type
-    }
-
-    fn set_class_type(&mut self, class_type: ClassType) {
-        self.class_type = class_type
-    }
-
-    fn get_super_class(&'a self) -> Option<&'a InstanceKlassDesc> {
-        self.super_class
-    }
-
-    fn set_super_class(&'a mut self, super_class: &'a InstanceKlassDesc) {
-        self.super_class = Some(super_class)
-    }
-
-    fn is_public(&self) {
-        todo!()
-    }
-
-    fn is_private(&self) {
-        todo!()
-    }
-
-    fn is_protected(&self) {
-        todo!()
-    }
-
-    fn is_final(&self) {
-        todo!()
-    }
-
-    fn is_static(&self) {
-        todo!()
-    }
-
-    fn is_abstract(&self) {
-        todo!()
-    }
-
-    fn is_interface(&self) {
-        todo!()
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Klass<'memory> {
-    Instance(InstanceKlassRef<'memory>),
-    Array(ArrayKlassRef<'memory>),
-}
-
-impl<'memory> Klass<'memory> {
+impl Klass {
     pub fn get_method(&self, method_name: &str, descriptor: &str) -> Method {
         match self {
-            Klass::Instance(klass) => klass.get_method(method_name, descriptor),
+            Klass::Instance(klass) => klass.borrow().get_method(method_name, descriptor),
             _ => {
                 panic!("Do not support")
             }
@@ -143,24 +76,20 @@ impl<'memory> Klass<'memory> {
     }
 }
 
-pub type InstanceKlassRef<'memory> = &'memory InstanceKlassDesc<'memory>;
-pub type ArrayKlassRef<'memory> = &'memory ArrayKlassDesc<'memory>;
-pub type InstanceOopRef<'memory> = &'memory InstanceOopDesc<'memory>;
-pub type ArrayOopRef<'memory> = &'memory ArrayOopDesc<'memory>;
-
-pub struct InstanceKlassDesc<'metaspace> {
+#[derive(Trace, Finalize)]
+pub struct InstanceKlassDesc {
     class_name: String,
     class_state: ClassState,
-    super_class: Option<&'metaspace InstanceKlassDesc<'metaspace>>,
+    super_class: Option<InstanceKlassRef>,
     fields_count: usize,
     vtable: RefCell<HashMap<String, Method>>,
     methods: RefCell<HashMap<String, Method>>,
     static_fields: RefCell<HashMap<String, FieldId>>,
-    static_values: RefCell<HashMap<String, Oop<'metaspace>>>,
+    static_values: RefCell<HashMap<String, Oop>>,
     instance_fields: RefCell<HashMap<String, FieldId>>,
-    class_file: &'metaspace ClassFile,
+    class_file: ClassFileRef,
 }
-impl<'metaspace> fmt::Debug for InstanceKlassDesc<'metaspace> {
+impl fmt::Debug for InstanceKlassDesc {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("InstanceKlassDesc")
             .field("class_name", &self.class_name)
@@ -179,8 +108,8 @@ fn gen_method_key(name: &str, descriptor: &str) -> String {
     format!("{name} {descriptor}")
 }
 
-impl<'metaspace> InstanceKlassDesc<'metaspace> {
-    pub fn new(class_file: &'metaspace ClassFile) -> InstanceKlassDesc<'metaspace> {
+impl InstanceKlassDesc {
+    pub fn new(class_file: ClassFileRef) -> InstanceKlassDesc {
         let class_name =
             Self::get_this_class_name(class_file.this_class, &class_file.constant_pool);
         InstanceKlassDesc {
@@ -300,7 +229,7 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
                 static_field_index += 1;
             } else {
                 let field_id = FieldId::new(instance_field_index, field);
-                self.instance_fields
+                self.instance_field
                     .borrow_mut()
                     .insert(unique_name, field_id);
                 instance_field_index += 1;
@@ -334,12 +263,14 @@ impl<'metaspace> InstanceKlassDesc<'metaspace> {
         InstanceOopDesc::new(self)
     }
 }
+
 #[derive(Debug)]
-pub struct ArrayKlassDesc<'memory> {
+pub struct ArrayKlassDesc {
     dimension: usize,
-    component_type: ComponentType<'memory>,
+    component_type: ComponentType,
 }
-impl<'memory> ArrayKlassDesc<'memory> {
+
+impl ArrayKlassDesc {
     pub fn new(dimension: usize, component_type: ComponentType) -> ArrayKlassDesc {
         ArrayKlassDesc {
             dimension,
@@ -351,67 +282,69 @@ impl<'memory> ArrayKlassDesc<'memory> {
         self.dimension
     }
 
-    pub fn new_instance(&'memory self, length: usize) -> ArrayOopDesc<'memory> {
+    pub fn new_instance(&self, length: usize) -> ArrayOopDesc {
         ArrayOopDesc::new(self, length)
     }
 }
-#[derive(Debug)]
-pub struct InstanceOopDesc<'memory> {
-    fields: Vec<Oop<'memory>>,
-    klass: InstanceKlassRef<'memory>,
+
+#[derive(Debug, Trace, Finalize)]
+pub struct InstanceOopDesc {
+    fields: Vec<Oop>,
+    klass: InstanceKlassRef,
 }
-impl<'memory> InstanceOopDesc<'memory> {
-    pub fn new(klass: InstanceKlassRef<'memory>) -> InstanceOopDesc<'memory> {
+
+impl InstanceOopDesc {
+    pub fn new(klass: InstanceKlassRef) -> InstanceOopDesc {
+        let fields_count = klass.clone().borrow().fields_count;
         InstanceOopDesc {
-            fields: vec![Oop::Uninitialized; klass.fields_count],
-            klass: klass,
+            fields: vec![Oop::Uninitialized; fields_count],
+            klass,
         }
     }
+
     pub fn get_klass(&self) -> InstanceKlassRef {
-        self.klass
+        self.klass.clone()
     }
+
     pub fn set_field_value(
         &mut self,
         class_name: &str,
         field_name: &str,
         field_descriptor: &str,
-        value: Oop<'memory>,
+        value: Oop,
     ) {
         let field_id = self
             .klass
+            .borrow()
             .get_instance_field_info(class_name, field_name, field_descriptor)
             .clone();
         self.fields.insert(field_id.offset, value);
     }
 
-    fn get_field_value(
-        &self,
-        class_name: &str,
-        field_name: &str,
-        field_descriptor: &str,
-    ) -> &'memory Oop {
+    fn get_field_value(&self, class_name: &str, field_name: &str, field_descriptor: &str) -> Oop {
         todo!()
     }
 }
 
-#[derive(Debug)]
-pub struct ArrayOopDesc<'memory> {
-    elements: Vec<Oop<'memory>>,
-    klass: ArrayKlassRef<'memory>,
+#[derive(Debug, Trace, Finalize)]
+pub struct ArrayOopDesc {
+    elements: Vec<Oop>,
+    klass: ArrayKlassRef,
 }
-impl<'memory> ArrayOopDesc<'memory> {
-    pub fn new(klass: ArrayKlassRef<'memory>, length: usize) -> ArrayOopDesc<'memory> {
+
+impl ArrayOopDesc {
+    pub fn new(klass: ArrayKlassRef, length: usize) -> ArrayOopDesc {
         ArrayOopDesc {
             elements: vec![Oop::Uninitialized; length],
             klass,
         }
     }
 
-    pub fn get_klass(&self) -> ArrayKlassRef<'memory> {
-        self.klass
+    pub fn get_klass(&self) -> ArrayKlassRef {
+        self.klass.clone()
     }
 
-    pub fn set_element_at(&mut self, position: usize, element: Oop<'memory>) {
+    pub fn set_element_at(&mut self, position: usize, element: Oop) {
         self.elements.insert(position, element);
     }
 }

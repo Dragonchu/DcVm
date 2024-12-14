@@ -3,9 +3,9 @@ use std::cell::RefCell;
 
 use typed_arena::Arena;
 
-use crate::{method::Method, runtime_constant_pool::RunTimeConstantPool};
 use crate::class::{InstanceKlassRef, Oop};
-enum Variable{
+use crate::method::Method;
+enum Variable {
     Boolean(bool),
     Byte(i8),
     Char(u16),
@@ -21,52 +21,58 @@ enum Variable{
 }
 
 #[derive(Debug)]
-pub struct Frame<'memory> {
-    local_variables: Vec<Oop<'memory>>,
-    operand_stack: Vec<Oop<'memory>>,
+pub struct Frame {
+    local_variables: Vec<Oop>,
+    operand_stack: Vec<Oop>,
     method: Method,
-    class: InstanceKlassRef<'memory>
+    class: InstanceKlassRef,
 }
-impl<'memory> Frame<'memory> {
+impl Frame {
     pub fn get_cur_method(&self) -> Method {
         self.method.clone()
     }
-    pub fn get_cur_class(&self) -> InstanceKlassRef<'_>{
-        self.class
+    pub fn get_cur_class(&self) -> InstanceKlassRef {
+        self.class.clone()
     }
 }
 
-pub struct Stack<'memory>{
-    frames: RefCell<Vec<&'memory Frame<'memory>>>,
-    allocator: Arena<Frame<'memory>>,
+pub struct Stack<'a> {
+    frames: RefCell<Vec<&'a Frame>>,
+    allocator: Arena<Frame>,
 }
-impl<'memory> fmt::Debug for Stack<'memory> {
+impl fmt::Debug for Stack<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stack")
-        .field("frames", &self.frames)
-        .finish()
+            .field("frames", &self.frames)
+            .finish()
     }
 }
-impl<'memory> Stack<'memory> {
-    pub fn new() -> Stack<'memory>{
+impl<'a> Stack<'a> {
+    pub fn new() -> Stack<'a> {
         Stack {
             frames: RefCell::new(Vec::new()),
-            allocator: Arena::new()
+            allocator: Arena::new(),
         }
     }
-    pub fn add_frame(&'memory self, receiver: Option<Oop<'memory>>, method: Method, class: InstanceKlassRef<'memory>, args: Vec<Oop<'memory>>) {
+    pub fn add_frame(
+        &'a self,
+        receiver: Option<Oop>,
+        method: Method,
+        class: InstanceKlassRef,
+        args: Vec<Oop>,
+    ) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
-        let max_stack = code.max_stack as usize; 
-        let mut locals: Vec<Oop<'_>> = receiver.into_iter().chain(args.into_iter()).collect();
-        while locals.len() < max_locals{
+        let max_stack = code.max_stack as usize;
+        let mut locals: Vec<Oop> = receiver.into_iter().chain(args.into_iter()).collect();
+        while locals.len() < max_locals {
             locals.push(Oop::Uninitialized)
         }
         let frame = Frame {
             local_variables: locals.clone(),
             operand_stack: Vec::with_capacity(max_stack),
             method,
-            class
+            class,
         };
         let frame_ref = self.allocator.alloc(frame);
         self.frames.borrow_mut().push(frame_ref)
@@ -76,7 +82,12 @@ impl<'memory> Stack<'memory> {
         self.frames.borrow_mut().pop();
     }
 
-    pub fn cur_frame(&self) -> &Frame{
-        self.frames.borrow().iter().rev().next().expect("No more frame")
+    pub fn cur_frame(&self) -> &Frame {
+        self.frames
+            .borrow()
+            .iter()
+            .rev()
+            .next()
+            .expect("No more frame")
     }
 }

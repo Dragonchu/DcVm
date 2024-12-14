@@ -6,13 +6,13 @@ use crate::{
     method_area::MethodArea,
 };
 
-struct Vm<'memory> {
-    heap: Heap<'memory>,
-    method_area: MethodArea<'memory>,
-    class_loader: BootstrapClassLoader<'memory>,
+struct Vm {
+    heap: Heap,
+    method_area: MethodArea,
+    class_loader: BootstrapClassLoader,
 }
-impl<'memory> Vm<'memory> {
-    fn new(paths: &'memory str) -> Vm<'memory> {
+impl Vm {
+    fn new(paths: &str) -> Vm {
         Vm {
             heap: Heap::new(),
             method_area: MethodArea::new(),
@@ -20,22 +20,24 @@ impl<'memory> Vm<'memory> {
         }
     }
 
-    fn invoke_main(&'memory self, args: Vec<&str>) {
+    fn invoke_main(&self, args: Vec<&str>) {
         let args_oop = self.new_string_array(args);
         let main_class = self
             .class_loader
             .load_instance_klass("Main", &self.method_area);
-        let main_method = main_class.get_method("main", "([Ljava/lang/String;)V");
+        let main_method = main_class
+            .borrow()
+            .get_method("main", "([Ljava/lang/String;)V");
         let args_vec = vec![Oop::Array(args_oop)];
         let java_main_thread = JvmThread::new(&self.class_loader, &self.method_area);
         java_main_thread.invoke(None, main_method, main_class, args_vec.clone());
     }
 
-    fn new_string_array(&'memory self, args: Vec<&str>) -> ArrayOopRef<'memory> {
+    fn new_string_array(&self, args: Vec<&str>) -> ArrayOopRef {
         let string_array_class = self
             .class_loader
             .load_array_klass("[Ljava/lang/String", &self.method_area);
-        let mut string_array_oop = string_array_class.new_instance(args.len());
+        let mut string_array_oop = string_array_class.borrow().new_instance(args.len());
         for (index, s) in args.iter().enumerate() {
             let arg_oop = self.new_string(s);
             string_array_oop.set_element_at(index, Oop::Instance(arg_oop));
@@ -43,18 +45,18 @@ impl<'memory> Vm<'memory> {
         self.heap.allocate_array_oop(string_array_oop)
     }
 
-    fn new_string(&'memory self, s: &str) -> InstanceOopRef<'memory> {
+    fn new_string(&self, s: &str) -> InstanceOopRef {
         let char_array_klass = self.class_loader.load_array_klass("[C", &self.method_area);
         let string_klass = self
             .class_loader
             .load_instance_klass("java/lang/String", &self.method_area);
-        let mut chars = char_array_klass.new_instance(s.len());
+        let mut chars = char_array_klass.borrow().new_instance(s.len());
         let char_array: Vec<Oop> = s.encode_utf16().map(|c| Oop::Int(c as i32)).collect();
         for (index, oop) in char_array.iter().enumerate() {
             chars.set_element_at(index, oop.clone());
         }
         let chars_ref = self.heap.allocate_array_oop(chars);
-        let mut java_string = string_klass.new_instance();
+        let mut java_string = string_klass.borrow().new_instance();
         java_string.set_field_value("java/lang/String", "value", "[C", Oop::Array(chars_ref));
         self.heap.allocate_instance_oop(java_string)
     }

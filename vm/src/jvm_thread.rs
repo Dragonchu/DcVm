@@ -12,13 +12,14 @@ pub struct JvmThread<'thread, 'memory> {
     pc_register: PcRegister,
     stack: Stack<'thread>,
     native: Stack<'thread>,
-    class_loader: &'memory BootstrapClassLoader<'memory>,
-    methead_area: &'memory MethodArea<'memory>,
+    class_loader: &'memory BootstrapClassLoader,
+    methead_area: &'memory MethodArea,
 }
+
 impl<'thread, 'memory> JvmThread<'thread, 'memory> {
     pub fn new(
-        class_loader: &'memory BootstrapClassLoader<'memory>,
-        methead_area: &'memory MethodArea<'memory>,
+        class_loader: &'memory BootstrapClassLoader,
+        methead_area: &'memory MethodArea,
     ) -> JvmThread<'thread, 'memory> {
         JvmThread {
             pc_register: PcRegister::new(),
@@ -28,12 +29,13 @@ impl<'thread, 'memory> JvmThread<'thread, 'memory> {
             methead_area,
         }
     }
+
     pub fn invoke(
         &'thread self,
-        receiver: Option<Oop<'thread>>,
+        receiver: Option<Oop>,
         method: Method,
-        class: InstanceKlassRef<'thread>,
-        args: Vec<Oop<'thread>>,
+        class: InstanceKlassRef,
+        args: Vec<Oop>,
     ) {
         self.stack.add_frame(receiver, method, class, args);
         self.execute();
@@ -49,7 +51,7 @@ impl<'thread, 'memory> JvmThread<'thread, 'memory> {
             match instruction {
                 Instruction::Getstatic(field_index) => {
                     let (class_name, field_name, descriptor) =
-                        cur_class.get_field_info(field_index);
+                        cur_class.borrow().get_field_info(field_index);
                     let field_class = self.class_loader.load(&class_name, &self.methead_area);
                     println!("Getstatic: {:?}", field_class)
                 }

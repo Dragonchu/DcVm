@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 reader = { path = "../reader" }
 typed-arena = "2.0.2"
+gc = { version = "0.5", features = ["derive"] }
+
