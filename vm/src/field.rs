@@ -1,10 +1,11 @@
-use std::fs::File;
+use gc::{Finalize, Trace};
+use reader::{
+    constant_pool::ConstantPool,
+    field_info::FieldInfo,
+    types::{ACC_STATIC, U2},
+};
 
-use reader::{constant_pool::ConstantPool, field_info::{self, FieldInfo}, types::{ACC_STATIC, U2}};
-
-use crate::class::Klass;
-
-pub enum ValueType{
+pub enum ValueType {
     Void,
     Byte,
     Boolean,
@@ -18,28 +19,25 @@ pub enum ValueType{
     Array(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Trace, Finalize)]
 pub struct FieldId {
     pub offset: usize,
     pub field: Field,
 }
 impl FieldId {
     pub fn new(offset: usize, field: Field) -> FieldId {
-        FieldId {
-            offset,
-            field
-        }
+        FieldId { offset, field }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Trace, Finalize)]
 pub struct Field {
     name: String,
     descriptor: String,
     access_flags: U2,
 }
 impl Field {
-    pub fn new(field_info: &FieldInfo, cp_pool: &dyn ConstantPool) -> Field{
+    pub fn new(field_info: &FieldInfo, cp_pool: &dyn ConstantPool) -> Field {
         Field {
             name: cp_pool.get_utf8_string(field_info.name_index),
             descriptor: cp_pool.get_utf8_string(field_info.descriptor_index),

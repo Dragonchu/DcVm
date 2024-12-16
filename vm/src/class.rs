@@ -1,3 +1,4 @@
+use gc::{Finalize, Gc, GcCell, Trace};
 use std::{cell::RefCell, collections::HashMap, fmt};
 
 use reader::{
@@ -10,8 +11,6 @@ use crate::{
     field::{Field, FieldId},
     method::Method,
 };
-
-use gc::{Finalize, Gc, GcCell, Trace};
 
 #[derive(Debug, Clone, Trace, Finalize)]
 pub enum Oop {
@@ -45,7 +44,7 @@ impl Oop {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub enum ComponentType {
     Object(InstanceKlassRef),
     Array(ArrayKlassRef),
@@ -82,11 +81,11 @@ pub struct InstanceKlassDesc {
     class_state: ClassState,
     super_class: Option<InstanceKlassRef>,
     fields_count: usize,
-    vtable: RefCell<HashMap<String, Method>>,
-    methods: RefCell<HashMap<String, Method>>,
-    static_fields: RefCell<HashMap<String, FieldId>>,
-    static_values: RefCell<HashMap<String, Oop>>,
-    instance_fields: RefCell<HashMap<String, FieldId>>,
+    vtable: HashMap<String, Method>,
+    methods: HashMap<String, Method>,
+    static_fields: HashMap<String, FieldId>,
+    static_values: HashMap<String, Oop>,
+    instance_fields: HashMap<String, FieldId>,
     class_file: ClassFileRef,
 }
 impl fmt::Debug for InstanceKlassDesc {
@@ -117,11 +116,11 @@ impl InstanceKlassDesc {
             class_state: ClassState::Allocated,
             super_class: None,
             fields_count: class_file.fields_count as usize,
-            vtable: RefCell::new(HashMap::new()),
-            methods: RefCell::new(HashMap::new()),
-            static_fields: RefCell::new(HashMap::new()),
-            static_values: RefCell::new(HashMap::new()),
-            instance_fields: RefCell::new(HashMap::new()),
+            vtable: HashMap::new(),
+            methods: HashMap::new(),
+            static_fields: HashMap::new(),
+            static_values: HashMap::new(),
+            instance_fields: HashMap::new(),
             class_file,
         }
     }
@@ -138,7 +137,6 @@ impl InstanceKlassDesc {
     ) -> FieldId {
         let unique_name = Self::gen_field_unique_name(class_name, field_name, descriptor);
         self.instance_fields
-            .borrow()
             .get(&unique_name)
             .cloned()
             .expect("unknown filed")
@@ -154,7 +152,7 @@ impl InstanceKlassDesc {
     ) {
     }
 
-    pub fn link(&self) {
+    pub fn link(&mut self) {
         self.link_method();
         self.link_fields();
     }
@@ -203,16 +201,14 @@ impl InstanceKlassDesc {
         return self.class_file.constant_pool.get_field_info(field_index);
     }
 
-    pub fn link_fields(&self) {
-        if let Some(super_class_desc) = self.super_class {
-            let super_class_fields = super_class_desc.instance_fields.borrow();
+    pub fn link_fields(&mut self) {
+        if let Some(ref super_class_desc) = self.super_class {
+            let super_class_fields = super_class_desc.borrow().instance_fields.clone();
             for (key, value) in super_class_fields.iter() {
-                self.instance_fields
-                    .borrow_mut()
-                    .insert(key.clone(), value.clone());
+                self.instance_fields.insert(key.clone(), value.clone());
             }
         }
-        let mut instance_field_index = self.instance_fields.borrow().len();
+        let mut instance_field_index = self.instance_fields.len();
         let mut static_field_index = 0;
         let cp_pool = &self.class_file.constant_pool;
         for field_info in &self.class_file.fields {
@@ -223,15 +219,11 @@ impl InstanceKlassDesc {
                 Self::gen_field_unique_name(&self.class_name, &field_name, &field_descriptor);
             if field.is_static() {
                 let field_id = FieldId::new(static_field_index, field);
-                self.static_fields
-                    .borrow_mut()
-                    .insert(unique_name, field_id);
+                self.static_fields.insert(unique_name, field_id);
                 static_field_index += 1;
             } else {
                 let field_id = FieldId::new(instance_field_index, field);
-                self.instance_field
-                    .borrow_mut()
-                    .insert(unique_name, field_id);
+                self.instance_fields.insert(unique_name, field_id);
                 instance_field_index += 1;
             }
         }
@@ -241,30 +233,25 @@ impl InstanceKlassDesc {
         format!("{class_name} {field_name} {descriptor}")
     }
 
-    pub fn link_method(&self) {
+    pub fn link_method(&mut self) {
         let cp_pool = &self.class_file.constant_pool;
         for method_info in &self.class_file.methods {
             let method = Method::new(&method_info, cp_pool);
             let unique_key = gen_method_key(&method.get_name(), &method.get_descriptor());
-            self.methods.borrow_mut().insert(unique_key, method);
+            self.methods.insert(unique_key, method);
         }
     }
 
     pub fn get_method(&self, method_name: &str, descriptor: &str) -> Method {
         let unique_key = gen_method_key(method_name, descriptor);
         self.methods
-            .borrow()
             .get(&unique_key)
             .expect("No method found")
             .clone()
     }
-
-    pub fn new_instance(&self) -> InstanceOopDesc {
-        InstanceOopDesc::new(self)
-    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub struct ArrayKlassDesc {
     dimension: usize,
     component_type: ComponentType,
@@ -280,10 +267,6 @@ impl ArrayKlassDesc {
 
     pub fn get_dimension(&self) -> usize {
         self.dimension
-    }
-
-    pub fn new_instance(&self, length: usize) -> ArrayOopDesc {
-        ArrayOopDesc::new(self, length)
     }
 }
 

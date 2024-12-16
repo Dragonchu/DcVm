@@ -1,5 +1,5 @@
 use crate::{
-    class::{ArrayOopRef, InstanceOopRef, Oop},
+    class::{ArrayOopDesc, ArrayOopRef, InstanceOopDesc, InstanceOopRef, Oop},
     class_loader::BootstrapClassLoader,
     heap::Heap,
     jvm_thread::JvmThread,
@@ -37,7 +37,7 @@ impl Vm {
         let string_array_class = self
             .class_loader
             .load_array_klass("[Ljava/lang/String", &self.method_area);
-        let mut string_array_oop = string_array_class.borrow().new_instance(args.len());
+        let mut string_array_oop = ArrayOopDesc::new(string_array_class, args.len());
         for (index, s) in args.iter().enumerate() {
             let arg_oop = self.new_string(s);
             string_array_oop.set_element_at(index, Oop::Instance(arg_oop));
@@ -50,13 +50,13 @@ impl Vm {
         let string_klass = self
             .class_loader
             .load_instance_klass("java/lang/String", &self.method_area);
-        let mut chars = char_array_klass.borrow().new_instance(s.len());
+        let mut chars = ArrayOopDesc::new(char_array_klass, s.len());
         let char_array: Vec<Oop> = s.encode_utf16().map(|c| Oop::Int(c as i32)).collect();
         for (index, oop) in char_array.iter().enumerate() {
             chars.set_element_at(index, oop.clone());
         }
         let chars_ref = self.heap.allocate_array_oop(chars);
-        let mut java_string = string_klass.borrow().new_instance();
+        let mut java_string = InstanceOopDesc::new(string_klass);
         java_string.set_field_value("java/lang/String", "value", "[C", Oop::Array(chars_ref));
         self.heap.allocate_instance_oop(java_string)
     }

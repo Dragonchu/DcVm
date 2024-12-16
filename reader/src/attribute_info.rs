@@ -1,6 +1,7 @@
 use crate::types::{U1, U2, U4};
+use gc::{Finalize, Trace};
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub enum AttributeInfo {
     ConstantValue {
         attribute_name_index: U2,
@@ -148,19 +149,19 @@ pub enum AttributeInfo {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub enum StackMapFrame {
     SameFrame {
         frame_type: U1,
     },
     SameLocals1StackItemFrame {
         frame_type: U1,
-        stack: [VerificationTypeInfo;1],
+        stack: [VerificationTypeInfo; 1],
     },
     SameLocals1StackItemFrameExtended {
         frame_type: U1,
         offset_delta: U2,
-        stack: [VerificationTypeInfo;1],
+        stack: [VerificationTypeInfo; 1],
     },
     ChopFrame {
         frame_type: U1,
@@ -185,7 +186,7 @@ pub enum StackMapFrame {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub enum VerificationTypeInfo {
     TopVariable { tag: U1 },
     IntegerVariable { tag: U1 },
@@ -198,20 +199,20 @@ pub enum VerificationTypeInfo {
     UninitializedVariable { tag: U1, offset: U2 },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub struct Annotation {
     pub type_index: U2,
     pub num_element_value_pairs: U2,
     pub element_value_pairs: Vec<(U2, ElementValue)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub struct ElementValue {
     pub tag: U1,
     pub value: ElementValueItem,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub enum ElementValueItem {
     ConstValueIndex {
         const_value_index: U2,
@@ -238,7 +239,7 @@ pub struct ParameterAnnotation {
     annotations: Vec<Annotation>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub struct TypeAnnotation {
     pub target_type: U1,
     pub target_info: TargetInfo,
@@ -248,7 +249,7 @@ pub struct TypeAnnotation {
     pub element_value_pairs: Vec<(U2, ElementValue)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub enum TargetInfo {
     TypeParameterTarget {
         type_parameter_index: U1,
@@ -284,17 +285,13 @@ pub enum TargetInfo {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace, Finalize)]
 pub struct TypePath {
     pub path_length: U1,
     //type_path_kind, type_argument_index
     pub path: Vec<(U1, U1)>,
 }
 
-trait AttributeInfos {
-    
-}
+trait AttributeInfos {}
 
-impl AttributeInfos for Vec<AttributeInfo> {
-
-}
+impl AttributeInfos for Vec<AttributeInfo> {}

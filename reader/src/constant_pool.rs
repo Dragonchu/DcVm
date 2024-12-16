@@ -2,16 +2,23 @@ use core::str;
 use std::fmt;
 
 use crate::types::{U1, U2, U4};
+use gc::{Finalize, Trace};
 
 impl CpInfo {
     pub fn to_utf8_string(&self) -> String {
-        if let CpInfo::Utf8 { tag:_, length:_, bytes } = self {
-           str::from_utf8(bytes).unwrap().to_string()
+        if let CpInfo::Utf8 {
+            tag: _,
+            length: _,
+            bytes,
+        } = self
+        {
+            str::from_utf8(bytes).unwrap().to_string()
         } else {
             panic!("wrong type: {:?}", self)
         }
     }
 }
+#[derive(Trace, Finalize)]
 pub enum CpInfo {
     Class {
         tag: U1,
@@ -83,7 +90,7 @@ pub enum CpInfo {
 
 pub trait ConstantPool {
     fn get_utf8_string(&self, index: U2) -> String;
-    fn get_field_info(&self, field_index: U2) -> (String,String, String);
+    fn get_field_info(&self, field_index: U2) -> (String, String, String);
 }
 
 impl ConstantPool for Vec<CpInfo> {
@@ -91,18 +98,38 @@ impl ConstantPool for Vec<CpInfo> {
         let cp_info = self.get((index - 1) as usize).expect("Unknow string");
         cp_info.to_utf8_string()
     }
-    fn get_field_info(&self, field_index: U2) -> (String,String, String){
-        if let CpInfo::FieldRef { tag, class_index, name_and_type_index } = self.get((field_index-1) as usize).expect("Unknow field") {
-            if let CpInfo::Class { tag, name_index: class_name_index } = self.get((class_index -1) as usize).expect("Unknown class") {
-                if let CpInfo::NameAndType { tag, name_index, descriptor_index } = self.get((name_and_type_index-1) as usize).expect("Unknow name and type") {
-                    (self.get_utf8_string(class_name_index.clone()),self.get_utf8_string(name_index.clone()), self.get_utf8_string(descriptor_index.clone()))
-                }else {
+    fn get_field_info(&self, field_index: U2) -> (String, String, String) {
+        if let CpInfo::FieldRef {
+            tag,
+            class_index,
+            name_and_type_index,
+        } = self.get((field_index - 1) as usize).expect("Unknow field")
+        {
+            if let CpInfo::Class {
+                tag,
+                name_index: class_name_index,
+            } = self.get((class_index - 1) as usize).expect("Unknown class")
+            {
+                if let CpInfo::NameAndType {
+                    tag,
+                    name_index,
+                    descriptor_index,
+                } = self
+                    .get((name_and_type_index - 1) as usize)
+                    .expect("Unknow name and type")
+                {
+                    (
+                        self.get_utf8_string(class_name_index.clone()),
+                        self.get_utf8_string(name_index.clone()),
+                        self.get_utf8_string(descriptor_index.clone()),
+                    )
+                } else {
                     panic!("Wrong type")
                 }
-            }else {
+            } else {
                 panic!("wrong type")
             }
-        }else {
+        } else {
             panic!("Wrong type")
         }
     }
@@ -173,5 +200,3 @@ impl TryFrom<u8> for ConstantInfoTag {
         }
     }
 }
-
-

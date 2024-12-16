@@ -1,10 +1,17 @@
 use std::fmt;
 
-use crate::{constant_pool::CpInfo, field_info::FieldInfo, method_info::MethodInfo, types::{U1, U2, U4}};
+use crate::{
+    constant_pool::CpInfo,
+    field_info::FieldInfo,
+    method_info::MethodInfo,
+    types::{U2, U4},
+};
 
 use super::attribute_info::AttributeInfo;
 
-#[derive(Debug)]
+use gc::{Finalize, Trace};
+
+#[derive(Debug, Trace, Finalize)]
 pub struct ClassFile {
     pub magic: U4,
     pub minor_version: U2,

@@ -1,11 +1,10 @@
 use reader::class_file::ClassFile;
-use std::cell::RefCell;
-use std::rc::Rc;
 use typed_arena::Arena;
 
 use crate::class::{
     ArrayKlassDesc, ArrayKlassRef, ComponentType, InstanceKlassDesc, InstanceKlassRef,
 };
+use gc::{Gc, GcCell};
 
 pub struct MethodArea {
     instance_allocator: Arena<InstanceKlassDesc>,
@@ -28,7 +27,7 @@ impl MethodArea {
     pub fn allocate_instance_klass(&self, class_file: ClassFile) -> InstanceKlassRef {
         let class_file_ref = Box::new(class_file);
         let klass = InstanceKlassDesc::new(class_file_ref);
-        Rc::new(RefCell::new(klass))
+        Gc::new(GcCell::new(klass))
     }
 
     pub fn allocate_array_klass(
@@ -37,6 +36,6 @@ impl MethodArea {
         component_type: ComponentType,
     ) -> ArrayKlassRef {
         let klass = ArrayKlassDesc::new(dimension, component_type);
-        Rc::new(RefCell::new(klass))
+        Gc::new(GcCell::new(klass))
     }
 }

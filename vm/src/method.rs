@@ -1,24 +1,28 @@
-use std::{cell::{Cell, Ref, RefCell}, fmt::format};
+use gc::{Finalize, Trace};
+use reader::{
+    attribute_info::AttributeInfo,
+    constant_pool::ConstantPool,
+    method_info::MethodInfo,
+    types::{U1, U2, U4},
+};
 
-use reader::{attribute_info::AttributeInfo, constant_pool::{ConstantPool, CpInfo}, method_info::MethodInfo, types::{U1, U2, U4}};
-
-use crate::{class::InstanceKlassRef, instructions::Instruction};
-#[derive(Debug, Clone)]
+use crate::instructions::Instruction;
+#[derive(Debug, Clone, Trace, Finalize)]
 struct ExceptionEntry {
     start_pc: U2,
     end_pc: U2,
     handler_pc: U2,
-    catch_type: U2
+    catch_type: U2,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Trace, Finalize, Clone)]
 pub struct ByteCodes(Vec<U1>);
 
 impl ByteCodes {
     pub fn iter(&self) -> ByteCodesInterator {
         ByteCodesInterator {
             byte_codes: self,
-            index: 0
+            index: 0,
         }
     }
 
@@ -29,7 +33,7 @@ impl ByteCodes {
 
 pub struct ByteCodesInterator<'a> {
     byte_codes: &'a ByteCodes,
-    index: usize
+    index: usize,
 }
 
 impl<'a> ByteCodesInterator<'a> {
@@ -196,13 +200,13 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
                 let index = self.read_u2();
                 let _ = self.read_u2();
                 Some(Instruction::Invokedynamic(index))
-            },
+            }
             0xb9 => {
                 let index = self.read_u2();
                 let cnt = self.read_u1();
                 let _ = self.read_u1();
                 Some(Instruction::Invokeinterface(index, cnt))
-            },
+            }
             0xb7 => Some(Instruction::Invokespecial(self.read_u2())),
             0xb8 => Some(Instruction::Invokestatic(self.read_u2())),
             0xb6 => Some(Instruction::Invokevirtual(self.read_u2())),
@@ -244,7 +248,7 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
             0x75 => Some(Instruction::Ineg),
             0xab => {
                 for _ in 0..3 {
-                    let _ =self.read_u1();
+                    let _ = self.read_u1();
                 }
                 let default = self.read_u4();
                 let npairs = self.read_u4();
@@ -255,7 +259,7 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
                     pairs.push((int_match, offset));
                 }
                 Some(Instruction::Lookupswitch(default, npairs, pairs))
-            },
+            }
             0x81 => Some(Instruction::Lor),
             0x71 => Some(Instruction::Irem),
             0xad => Some(Instruction::Ireturn),
@@ -273,7 +277,7 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
             0xc3 => Some(Instruction::Monitorexit),
             0xc5 => Some(Instruction::Multianewarray(self.read_u2(), self.read_u1())),
             0xbb => Some(Instruction::New(self.read_u2())),
-            0xbc => Some(Instruction::Newarray(self.read_u1())),//TODO use enum ArrayType
+            0xbc => Some(Instruction::Newarray(self.read_u1())), //TODO use enum ArrayType
             0x0 => Some(Instruction::Nop),
             0x57 => Some(Instruction::Pop),
             0x58 => Some(Instruction::Pop2),
@@ -298,22 +302,22 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
                     offsets.push(self.read_u4() as i32);
                 }
                 Some(Instruction::Tableswitch(default, low, high, offsets))
-            },
+            }
             0xc4 => Some(Instruction::Wide),
-            _ =>None
+            _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Trace, Finalize, Clone)]
 pub struct Code {
     pub max_stack: U2,
     pub max_locals: U2,
     pub byte_codes: ByteCodes,
     exception_table_length: U2,
-    exception_table: Vec<ExceptionEntry>
+    exception_table: Vec<ExceptionEntry>,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Trace, Finalize, Clone)]
 pub struct Method {
     access_flags: U2,
     name: String,
@@ -321,43 +325,51 @@ pub struct Method {
     code: Option<Code>,
 }
 
-pub fn link_code(method_info: &MethodInfo) -> Option<Code>{
+pub fn link_code(method_info: &MethodInfo) -> Option<Code> {
     for attribute_info in &method_info.attributes {
         match attribute_info {
-            AttributeInfo::Code { attribute_name_index, attribute_length, max_stack, max_locals, code_length, code, exception_table_length, exception_table, attributes_count, attributes } => {
+            AttributeInfo::Code {
+                attribute_name_index,
+                attribute_length,
+                max_stack,
+                max_locals,
+                code_length,
+                code,
+                exception_table_length,
+                exception_table,
+                attributes_count,
+                attributes,
+            } => {
                 let mut rt_exception_table = Vec::new();
                 for exception_entry in exception_table {
-                    rt_exception_table.push(
-                        ExceptionEntry{
-                            start_pc: exception_entry.0,
-                            end_pc: exception_entry.1,
-                            handler_pc: exception_entry.2,
-                            catch_type: exception_entry.3
-                        }
-                    )
+                    rt_exception_table.push(ExceptionEntry {
+                        start_pc: exception_entry.0,
+                        end_pc: exception_entry.1,
+                        handler_pc: exception_entry.2,
+                        catch_type: exception_entry.3,
+                    })
                 }
                 return Some(Code {
                     max_stack: max_stack.clone(),
                     max_locals: max_locals.clone(),
                     byte_codes: ByteCodes(code.clone()),
                     exception_table_length: exception_table_length.clone(),
-                    exception_table: rt_exception_table
+                    exception_table: rt_exception_table,
                 });
             }
-            _ => {
-            }
+            _ => {}
         }
     }
-return None;
+    return None;
 }
 
 impl Method {
-    pub fn new(method_info: &MethodInfo, cp_pool: & dyn ConstantPool) -> Method {
+    pub fn new(method_info: &MethodInfo, cp_pool: &dyn ConstantPool) -> Method {
         Method {
             access_flags: method_info.access_flags,
-            name:  cp_pool.get_utf8_string(method_info.name_index),
+            name: cp_pool.get_utf8_string(method_info.name_index),
             descriptor: cp_pool.get_utf8_string(method_info.descriptor_index),
-            code: link_code(method_info)
+            code: link_code(method_info),
         }
     }
 
@@ -378,5 +390,4 @@ impl Method {
     pub fn get_code(&self) -> Code {
         self.code.clone().unwrap()
     }
-
 }
