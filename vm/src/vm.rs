@@ -69,6 +69,7 @@ mod tests {
 
     #[test]
     fn layout_test() {
+        println!("Hi");
         println!(
             "size: {}, align: {}",
             std::mem::size_of::<InstanceOopDesc>(),
@@ -78,14 +79,14 @@ mod tests {
 
     #[test]
     fn new_string_test() {
-        let vm = Vm::new("/home/codespace/java/current/jre/lib/rt.jar");
+        let vm = Vm::new("/Users/dragonchu/.sdkman/candidates/java/8.0.422-amzn/jre/lib/rt.jar");
         let java_string_oop = vm.new_string("Hello world");
         println!("{:?}", java_string_oop);
     }
 
     #[test]
     fn args_oop_test() {
-        let vm = Vm::new("/home/codespace/java/current/jre/lib/rt.jar");
+        let vm = Vm::new("/Users/dragonchu/.sdkman/candidates/java/8.0.422-amzn/jre/lib/rt.jar");
         let args = vec!["hello", "world"];
         let args_oop_array = vm.new_string_array(args);
         println!("{:?}", args_oop_array);
@@ -93,7 +94,9 @@ mod tests {
 
     #[test]
     fn invoke_main_test() {
-        let vm = Vm::new("resources/test:/home/codespace/java/current/jre/lib/rt.jar");
+        let vm = Vm::new(
+            "resources/test:/Users/dragonchu/.sdkman/candidates/java/8.0.422-amzn/jre/lib/rt.jar",
+        );
         let args = vec!["hello", "world"];
         vm.invoke_main(args);
     }
