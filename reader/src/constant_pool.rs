@@ -18,7 +18,7 @@ impl CpInfo {
         }
     }
 }
-#[derive(Trace, Finalize)]
+#[derive(Clone)]
 pub enum CpInfo {
     Class {
         tag: U1,

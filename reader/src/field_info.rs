@@ -1,5 +1,6 @@
 use crate::{attribute_info::AttributeInfo, types::U2};
 use gc::{Finalize, Trace};
+use crate::types::ACC_STATIC;
 
 #[derive(Debug, Trace, Finalize)]
 pub struct FieldInfo {
@@ -24,5 +25,9 @@ impl FieldInfo {
             attributes_count: attributes.len() as U2,
             attributes,
         }
+    }
+    
+    pub fn is_static(&self) -> bool {
+        self.access_flags & ACC_STATIC == ACC_STATIC
     }
 }

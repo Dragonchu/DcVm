@@ -9,9 +9,9 @@ use crate::{
 
 use super::attribute_info::AttributeInfo;
 
-use gc::{Finalize, Trace};
+use crate::constant_pool::ConstantPool;
 
-#[derive(Debug, Trace, Finalize)]
+#[derive(Debug)]
 pub struct ClassFile {
     pub magic: U4,
     pub minor_version: U2,
@@ -67,6 +67,24 @@ impl ClassFile {
             methods,
             attributes_count,
             attributes,
+        }
+    }
+
+    pub fn get_class_name(&self) -> String {
+        match self.constant_pool.get((self.this_class -1) as usize) {
+            Some(CpInfo::Class { tag: _, name_index }) => {
+                self.constant_pool.get_utf8_string(*name_index)
+            }
+            other => panic!("Wrong type {other:?}"),
+        }
+    }
+
+    pub fn get_super_class_name(&self) -> String {
+        match self.constant_pool.get((self.super_class -1 ) as usize) {
+            Some(CpInfo::Class { tag: _, name_index }) => {
+                self.constant_pool.get_utf8_string(*name_index)
+            }
+            other => panic!("Wrong type {other:?}"),
         }
     }
 }

@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use typed_arena::Arena;
 
-use crate::class::{InstanceKlassRef, Oop};
+use crate::class::{Klass, Oop};
 use crate::method::Method;
 enum Variable {
     Boolean(bool),
@@ -25,13 +25,13 @@ pub struct Frame {
     local_variables: Vec<Oop>,
     operand_stack: Vec<Oop>,
     method: Method,
-    class: InstanceKlassRef,
+    class: Klass,
 }
 impl Frame {
     pub fn get_cur_method(&self) -> Method {
         self.method.clone()
     }
-    pub fn get_cur_class(&self) -> InstanceKlassRef {
+    pub fn get_cur_class(&self) -> Klass {
         self.class.clone()
     }
 }
@@ -58,7 +58,7 @@ impl<'a> Stack<'a> {
         &'a self,
         receiver: Option<Oop>,
         method: Method,
-        class: InstanceKlassRef,
+        class: Klass,
         args: Vec<Oop>,
     ) {
         let code = method.get_code();

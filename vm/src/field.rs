@@ -1,4 +1,3 @@
-use gc::{Finalize, Trace};
 use reader::{
     constant_pool::ConstantPool,
     field_info::FieldInfo,
@@ -19,18 +18,7 @@ pub enum ValueType {
     Array(String),
 }
 
-#[derive(Debug, Clone, Trace, Finalize)]
-pub struct FieldId {
-    pub offset: usize,
-    pub field: Field,
-}
-impl FieldId {
-    pub fn new(offset: usize, field: Field) -> FieldId {
-        FieldId { offset, field }
-    }
-}
-
-#[derive(Debug, Clone, Trace, Finalize)]
+#[derive(Debug, Clone)]
 pub struct Field {
     name: String,
     descriptor: String,

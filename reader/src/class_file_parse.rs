@@ -702,7 +702,7 @@ impl<'a> ClassFileParser<'a> {
         let mut stack_map_table: Vec<StackMapFrame> = Vec::new();
         for _ in 0..number_of_entries {
             let frame_type = self.class_file_stream.read_u1();
-            if frame_type >= 0 && frame_type <= 63 {
+            if frame_type <= 63 {
                 // SAME
                 stack_map_table.push(StackMapFrame::SameFrame { frame_type });
             } else if frame_type >= 64 && frame_type <= 127 {
