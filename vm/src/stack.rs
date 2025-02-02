@@ -1,6 +1,7 @@
 use core::fmt;
 
 use crate::class::{Klass, Value};
+use crate::heap::ObjPtr;
 use crate::method::Method;
 enum Variable {
     Boolean(bool),
@@ -45,21 +46,23 @@ impl fmt::Debug for Stack {
 }
 impl Stack {
     pub fn new() -> Stack {
-        Stack {
-            frames: Vec::new(),
-        }
+        Stack { frames: Vec::new() }
     }
     pub fn add_frame(
         &mut self,
-        receiver: Option<Value>,
+        receiver: Option<ObjPtr>,
         method: Method,
         class: Klass,
-        args: Vec<Value>,
+        args: Vec<ObjPtr>,
     ) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
         let max_stack = code.max_stack as usize;
-        let mut locals: Vec<Value> = receiver.into_iter().chain(args.into_iter()).collect();
+        let mut locals: Vec<Value> = receiver
+            .into_iter()
+            .chain(args.into_iter())
+            .map(|obj| obj.into())
+            .collect();
         while locals.len() < max_locals {
             locals.push(Value::Uninitialized)
         }
@@ -77,10 +80,6 @@ impl Stack {
     }
 
     pub fn cur_frame(&self) -> &Frame {
-        self.frames
-            .iter()
-            .rev()
-            .next()
-            .expect("No more frame")
+        self.frames.iter().rev().next().expect("No more frame")
     }
 }

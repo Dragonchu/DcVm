@@ -7,6 +7,7 @@ use crate::{
     stack::Stack,
 };
 use crate::class::Klass;
+use crate::heap::{ObjPtr, Object};
 
 pub struct JvmThread<'a> {
     pc_register: PcRegister,
@@ -29,10 +30,10 @@ impl<'a> JvmThread<'a> {
 
     pub fn invoke(
         &mut self,
-        receiver: Option<Value>,
+        receiver: Option<ObjPtr>,
         method: Method,
         class: Klass,
-        args: Vec<Value>,
+        args: Vec<ObjPtr>,
     ) {
         self.stack.add_frame(receiver, method, class, args);
         self.execute();
@@ -47,7 +48,7 @@ impl<'a> JvmThread<'a> {
         for instruction in code.byte_codes.iter() {
             match instruction {
                 Instruction::Getstatic(field_index) => {
-                    let filed= 
+                    let filed=
                         cur_class.get_field_info(field_index);
                     let field_class = self.class_loader.load(&filed.get_name());
                     println!("Getstatic: {:?}", field_class)

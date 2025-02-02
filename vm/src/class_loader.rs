@@ -1,12 +1,14 @@
-use std::{cell::RefCell, collections::HashMap};
-
 use crate::class::{ArrayKlass, ComponentType, InstanceKlass, Klass};
 use reader::class_path_manager::ClassPathManager;
 use reader::constant_pool::ConstantPool;
+use std::cell::Cell;
+use std::{cell::RefCell, collections::HashMap};
 
 pub struct BootstrapClassLoader {
     class_path_manager: ClassPathManager,
-    classes: RefCell<HashMap<String, Klass>>,
+    classes: RefCell<HashMap<usize, Klass>>,
+    name_id: RefCell<HashMap<String, usize>>,
+    nxt_id: Cell<usize>,
 }
 
 impl BootstrapClassLoader {
@@ -16,21 +18,30 @@ impl BootstrapClassLoader {
         BootstrapClassLoader {
             class_path_manager,
             classes: RefCell::new(HashMap::new()),
+            name_id: RefCell::new(HashMap::new()),
+            nxt_id: Cell::new(0),
         }
     }
 
     pub fn load(&self, class_name: &str) -> Klass {
-        if self.classes.borrow().contains_key(class_name) {
-            return self.classes.borrow().get(class_name).unwrap().clone();
+        if self.name_id.borrow().contains_key(class_name) {
+            return self
+                .classes
+                .borrow()
+                .get(self.name_id.borrow().get(class_name).unwrap())
+                .unwrap()
+                .clone();
         }
         let klass = if class_name.starts_with('[') {
             Klass::Array(self.do_load_array(class_name))
         } else {
             Klass::Instance(self.do_load_instance(class_name))
         };
-        self.classes
+        self.name_id
             .borrow_mut()
-            .insert(String::from(class_name), klass.clone());
+            .insert(String::from(class_name), self.nxt_id.get());
+        self.classes.borrow_mut().insert(self.nxt_id.get(), klass.clone());
+        self.nxt_id.set(self.nxt_id.get() + 1);
         klass
     }
 
@@ -69,7 +80,7 @@ impl BootstrapClassLoader {
 
     fn do_load_instance(&self, class_name: &str) -> InstanceKlass {
         if let Some(r_class_name) = class_name.strip_prefix('L') {
-           return self.do_load_instance(r_class_name);
+            return self.do_load_instance(r_class_name);
         }
         let class_file = self
             .class_path_manager
@@ -88,7 +99,7 @@ mod tests {
         let klass_ref = cl.load("LMain");
         println!("{:?}", klass_ref);
     }
-    
+
     #[test]
     fn load_array_class() {
         let mut cl = BootstrapClassLoader::new("resources/test");

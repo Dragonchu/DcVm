@@ -1,13 +1,15 @@
-use crate::class::{Klass, Value};
+use crate::class::{ArrayKlass, InstanceKlass, Klass, Value};
 use bitfield_struct::bitfield;
 use std::ptr::NonNull;
 
 #[bitfield(u64)]
 #[derive(PartialEq, Eq)]
-struct RawObjHeader {
-    #[bits(10)]
+struct Header {
+    #[bits(2)]
+    pub(crate) kind: ObjectKind,
+    #[bits(8)]
     pub(crate) class_id: usize,
-    
+
     #[bits(1)]
     pub(crate) state: GcState,
 
@@ -18,29 +20,59 @@ struct RawObjHeader {
     pub(crate) size: usize,
 }
 
-
-#[derive(Clone, Copy, Debug)]
-pub struct ObjectPtr(NonNull<Value>);
-
 #[derive(Debug, Clone)]
-pub struct RawObject {
-    head: RawObjHeader,
-    fields_begin: ObjectPtr,
+pub struct Data {
+    begin: NonNull<Value>,
+    length: usize,
 }
 
-// impl ObjectPtr {
-//     pub fn get_field(&self, klass: &Klass, index: U2) -> NonNull<Value> {
-//         let field = klass.get_field_info(index);
-//         let desc = field.get_descriptor();
-//     }
-// 
-//     fn read(&self, index: U2, desc: &str) -> NonNull<Value> {
-//         
-//     }
-// }
+impl Data {
+    pub fn write(&mut self, value: Value, index: usize) {
+        unsafe { self.begin.offset(index as isize).write(value) }
+    }
+
+    pub fn read(&self, index: usize) -> Value {
+        unsafe { self.begin.offset(index as isize).read() }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ObjPtr(NonNull<Object>);
+
+impl ObjPtr {
+    pub fn set_element(&mut self, value: Value, index: usize) {
+        unsafe {
+            self.0.as_mut().data.write(value, index);
+        }
+    }
+}
+
+impl Into<Value> for ObjPtr {
+    fn into(self) -> Value {
+        unsafe {
+            match self.0.as_ref().head.kind() {
+                ObjectKind::Base => self.0.as_ref().data.begin.as_ptr().read().into(),
+                ObjectKind::Array | ObjectKind::Object => Value::Obj(self),
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Object {
+    head: Header,
+    data: Data,
+}
+
+impl Object {
+    pub fn set_element(&mut self, value: Value, index: usize) {
+        self.data.write(value, index);
+    }
+}
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum ObjectKind {
+    Base,
     Object,
     Array,
 }
@@ -94,17 +126,6 @@ pub enum AllocError {
     OOM,
 }
 
-pub trait AllocRaw {
-    fn alloc<T>(&self, klass: Klass) -> Result<ObjectPtr, AllocError>;
-
-    /// Allocating an array allows the client to put anything in the resulting data
-    /// block but the type of the memory block will simply be 'Array'. No other
-    /// type information will be stored in the object header.
-    /// This is just a special case of alloc<T>() for T=u8 but a count > 1 of u8
-    /// instances.  The caller is responsible for the content of the array.
-    fn alloc_array(&self, size_bytes: usize) -> Result<ObjectPtr, AllocError>;
-}
-
 pub struct Heap;
 
 impl Heap {
@@ -113,12 +134,25 @@ impl Heap {
     }
 }
 
-impl AllocRaw for Heap {
-    fn alloc<T>(&self, klass: Klass) -> Result<ObjectPtr, AllocError> {
-        todo!()
+impl Heap {
+    pub(crate) fn alloc(&self, klass: Klass) -> Result<ObjPtr, AllocError> {
+        match klass {
+            Klass::Instance(instance) => {
+                todo!()
+            }
+            Klass::Array(_) => panic!(),
+        }
     }
 
-    fn alloc_array(&self, size_bytes: usize) -> Result<ObjectPtr, AllocError> {
-        todo!()
+    pub(crate) fn alloc_array(&self, klass: Klass, length: usize) -> Result<ObjPtr, AllocError> {
+        match klass {
+            Klass::Instance(_) => {
+                panic!()
+            }
+            Klass::Array(array) => {
+                let field_cnt = array.dimension * length;
+                todo!()
+            }
+        }
     }
 }

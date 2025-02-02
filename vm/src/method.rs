@@ -326,8 +326,7 @@ pub struct Method {
 
 pub fn link_code(method_info: &MethodInfo) -> Option<Code> {
     for attribute_info in &method_info.attributes {
-        match attribute_info {
-            AttributeInfo::Code {
+        if let AttributeInfo::Code {
                 attribute_name_index,
                 attribute_length,
                 max_stack,
@@ -338,28 +337,26 @@ pub fn link_code(method_info: &MethodInfo) -> Option<Code> {
                 exception_table,
                 attributes_count,
                 attributes,
-            } => {
-                let mut rt_exception_table = Vec::new();
-                for exception_entry in exception_table {
-                    rt_exception_table.push(ExceptionEntry {
-                        start_pc: exception_entry.0,
-                        end_pc: exception_entry.1,
-                        handler_pc: exception_entry.2,
-                        catch_type: exception_entry.3,
-                    })
-                }
-                return Some(Code {
-                    max_stack: max_stack.clone(),
-                    max_locals: max_locals.clone(),
-                    byte_codes: ByteCodes(code.clone()),
-                    exception_table_length: exception_table_length.clone(),
-                    exception_table: rt_exception_table,
-                });
+            } = attribute_info {
+            let mut rt_exception_table = Vec::new();
+            for exception_entry in exception_table {
+                rt_exception_table.push(ExceptionEntry {
+                    start_pc: exception_entry.0,
+                    end_pc: exception_entry.1,
+                    handler_pc: exception_entry.2,
+                    catch_type: exception_entry.3,
+                })
             }
-            _ => {}
+            return Some(Code {
+                max_stack: max_stack.clone(),
+                max_locals: max_locals.clone(),
+                byte_codes: ByteCodes(code.clone()),
+                exception_table_length: exception_table_length.clone(),
+                exception_table: rt_exception_table,
+            });
         }
     }
-    return None;
+    None
 }
 
 impl Method {

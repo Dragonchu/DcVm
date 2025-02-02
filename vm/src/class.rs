@@ -1,14 +1,14 @@
 use crate::field::Field;
+use crate::heap::ObjPtr;
 use crate::method::Method;
 use reader::class_file::ClassFile;
 use reader::constant_pool::{ConstantPool, CpInfo};
-use std::collections::HashMap;
-use crate::heap::{ObjectPtr, RawObject};
 use reader::types::U2;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub enum ClassState {
-   LOADED
+    LOADED,
 }
 
 #[derive(Debug, Clone)]
@@ -21,8 +21,8 @@ pub enum Value {
     Float(f32),
     Double(f64),
     Char(char),
-    Instance(RawObject),
-    Uninitialized
+    Obj(ObjPtr),
+    Uninitialized,
 }
 
 #[derive(Debug, Clone)]
@@ -58,10 +58,20 @@ pub struct InstanceKlass {
     cp: Vec<CpInfo>,
 }
 
+impl InstanceKlass {
+    pub fn get_method(&self, name: &str, args: &str) -> Method {
+        todo!()
+    }
+
+    pub fn get_field_info(&self, index: U2) -> &Field {
+        todo!()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ArrayKlass {
-    dimension: usize,
-    component_type: ComponentType,
+    pub(crate) dimension: usize,
+    pub(crate) component_type: ComponentType,
 }
 
 impl Klass {
@@ -71,7 +81,7 @@ impl Klass {
         let mut methods = HashMap::new();
         for m_info in &class_file.methods {
             let method = Method::new(m_info, cp);
-            methods.insert(method.get_name(), method);
+            methods.insert(method.get_unique_key(), method);
         }
 
         let mut static_fields = HashMap::new();
@@ -99,7 +109,7 @@ impl Klass {
             cp: cp.clone(),
         }
     }
-    
+
     pub fn new_array(dimension: usize, component_type: ComponentType) -> ArrayKlass {
         ArrayKlass {
             dimension,
@@ -108,10 +118,16 @@ impl Klass {
     }
 
     pub fn get_method(&self, name: &str,args: &str) -> Method {
-        todo!()
+        match self {
+            Klass::Instance(instance) => instance.get_method(name, args),
+            _ => panic!(),
+        }
     }
 
     pub fn get_field_info(&self, index: U2) -> &Field {
-        todo!()
+        match self {
+            Klass::Instance(intance) => intance.get_field_info(index),
+            _ => panic!(),
+        }
     }
 }
