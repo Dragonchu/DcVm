@@ -3,6 +3,5 @@ members = [
     "reader",
     "vm",
     "cli",
-    "gc",
 ]
 

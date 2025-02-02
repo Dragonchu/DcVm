@@ -1,9 +1,7 @@
 use std::fmt;
 
 use crate::{attribute_info::AttributeInfo, types::U2};
-use gc::{Finalize, Trace};
 
-#[derive(Trace, Finalize)]
 pub struct MethodInfo {
     pub access_flags: U2,
     pub name_index: U2,

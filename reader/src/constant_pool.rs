@@ -2,7 +2,6 @@ use core::str;
 use std::fmt;
 
 use crate::types::{U1, U2, U4};
-use gc::{Finalize, Trace};
 
 impl CpInfo {
     pub fn to_utf8_string(&self) -> String {

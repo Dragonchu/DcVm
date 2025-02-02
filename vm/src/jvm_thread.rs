@@ -1,5 +1,5 @@
 use crate::{
-    class::{Oop},
+    class::{Value},
     class_loader::BootstrapClassLoader,
     instructions::Instruction,
     method::Method,
@@ -8,17 +8,17 @@ use crate::{
 };
 use crate::class::Klass;
 
-pub struct JvmThread<'thread, 'memory> {
+pub struct JvmThread<'a> {
     pc_register: PcRegister,
-    stack: Stack<'thread>,
-    native: Stack<'thread>,
-    class_loader: &'memory BootstrapClassLoader,
+    stack: Stack,
+    native: Stack,
+    class_loader: &'a BootstrapClassLoader,
 }
 
-impl<'thread, 'memory> JvmThread<'thread, 'memory> {
+impl<'a> JvmThread<'a> {
     pub fn new(
-        class_loader: &'memory BootstrapClassLoader,
-    ) -> JvmThread<'thread, 'memory> {
+        class_loader: &'a BootstrapClassLoader,
+    ) -> JvmThread<'a> {
         JvmThread {
             pc_register: PcRegister::new(),
             stack: Stack::new(),
@@ -28,11 +28,11 @@ impl<'thread, 'memory> JvmThread<'thread, 'memory> {
     }
 
     pub fn invoke(
-        &'thread self,
-        receiver: Option<Oop>,
+        &mut self,
+        receiver: Option<Value>,
         method: Method,
         class: Klass,
-        args: Vec<Oop>,
+        args: Vec<Value>,
     ) {
         self.stack.add_frame(receiver, method, class, args);
         self.execute();

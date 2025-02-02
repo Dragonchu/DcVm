@@ -3,17 +3,16 @@ use crate::method::Method;
 use reader::class_file::ClassFile;
 use reader::constant_pool::{ConstantPool, CpInfo};
 use std::collections::HashMap;
+use crate::heap::{ObjectPtr, RawObject};
 use reader::types::U2;
 
 #[derive(Clone, Debug)]
 pub enum ClassState {
-   LOADED 
+   LOADED
 }
 
-type ObjectId = usize;
-
-#[derive(Debug, Copy, Clone)]
-pub enum Oop {
+#[derive(Debug, Clone)]
+pub enum Value {
     Boolean(bool),
     Byte(i8),
     Short(i16),
@@ -22,32 +21,59 @@ pub enum Oop {
     Float(f32),
     Double(f64),
     Char(char),
-    ObjRef(ObjectId),
+    Instance(RawObject),
     Uninitialized
 }
 
 #[derive(Debug, Clone)]
-pub struct Klass {
+pub enum ComponentType {
+    Void,
+    Byte,
+    Boolean,
+    Char,
+    Short,
+    Int,
+    Float,
+    Long,
+    Double,
+    Object(Box<InstanceKlass>),
+    Array(Box<ArrayKlass>),
+}
+
+#[derive(Debug, Clone)]
+pub enum Klass {
+    Instance(InstanceKlass),
+    Array(ArrayKlass),
+}
+
+#[derive(Debug, Clone)]
+pub struct InstanceKlass {
     pub(crate) class_name: String,
     pub(crate) class_state: ClassState,
     pub(crate) super_class: String,
     methods: HashMap<String, Method>,
     static_fields: HashMap<String, Field>,
-    static_values: HashMap<String, Oop>,
+    static_values: HashMap<String, Value>,
     instance_fields: HashMap<String, Field>,
     cp: Vec<CpInfo>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ArrayKlass {
+    dimension: usize,
+    component_type: ComponentType,
+}
+
 impl Klass {
-    pub fn new(class_file: &ClassFile) -> Klass {
+    pub fn new_instance(class_file: &ClassFile) -> InstanceKlass {
         let cp = &class_file.constant_pool;
-        
+
         let mut methods = HashMap::new();
         for m_info in &class_file.methods {
             let method = Method::new(m_info, cp);
             methods.insert(method.get_name(), method);
         }
-        
+
         let mut static_fields = HashMap::new();
         let mut static_values = HashMap::new();
         let mut instance_fields = HashMap::new();
@@ -61,8 +87,8 @@ impl Klass {
                 instance_fields.insert(field_name, field);
             }
         }
-        
-        Klass {
+
+        InstanceKlass {
             class_name: class_file.get_class_name(),
             class_state: ClassState::LOADED,
             super_class: class_file.get_super_class_name(),
@@ -74,10 +100,17 @@ impl Klass {
         }
     }
     
+    pub fn new_array(dimension: usize, component_type: ComponentType) -> ArrayKlass {
+        ArrayKlass {
+            dimension,
+            component_type,
+        }
+    }
+
     pub fn get_method(&self, name: &str,args: &str) -> Method {
         todo!()
-    } 
-    
+    }
+
     pub fn get_field_info(&self, index: U2) -> &Field {
         todo!()
     }

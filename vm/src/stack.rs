@@ -1,9 +1,6 @@
 use core::fmt;
-use std::cell::RefCell;
 
-use typed_arena::Arena;
-
-use crate::class::{Klass, Oop};
+use crate::class::{Klass, Value};
 use crate::method::Method;
 enum Variable {
     Boolean(bool),
@@ -20,10 +17,10 @@ enum Variable {
     Uninitialized,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Frame {
-    local_variables: Vec<Oop>,
-    operand_stack: Vec<Oop>,
+    local_variables: Vec<Value>,
+    operand_stack: Vec<Value>,
     method: Method,
     class: Klass,
 }
@@ -36,37 +33,35 @@ impl Frame {
     }
 }
 
-pub struct Stack<'a> {
-    frames: RefCell<Vec<&'a Frame>>,
-    allocator: Arena<Frame>,
+pub struct Stack {
+    frames: Vec<Frame>,
 }
-impl fmt::Debug for Stack<'_> {
+impl fmt::Debug for Stack {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stack")
             .field("frames", &self.frames)
             .finish()
     }
 }
-impl<'a> Stack<'a> {
-    pub fn new() -> Stack<'a> {
+impl Stack {
+    pub fn new() -> Stack {
         Stack {
-            frames: RefCell::new(Vec::new()),
-            allocator: Arena::new(),
+            frames: Vec::new(),
         }
     }
     pub fn add_frame(
-        &'a self,
-        receiver: Option<Oop>,
+        &mut self,
+        receiver: Option<Value>,
         method: Method,
         class: Klass,
-        args: Vec<Oop>,
+        args: Vec<Value>,
     ) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
         let max_stack = code.max_stack as usize;
-        let mut locals: Vec<Oop> = receiver.into_iter().chain(args.into_iter()).collect();
+        let mut locals: Vec<Value> = receiver.into_iter().chain(args.into_iter()).collect();
         while locals.len() < max_locals {
-            locals.push(Oop::Uninitialized)
+            locals.push(Value::Uninitialized)
         }
         let frame = Frame {
             local_variables: locals.clone(),
@@ -74,17 +69,15 @@ impl<'a> Stack<'a> {
             method,
             class,
         };
-        let frame_ref = self.allocator.alloc(frame);
-        self.frames.borrow_mut().push(frame_ref)
+        self.frames.push(frame);
     }
 
-    pub fn pop_frame(&self) {
-        self.frames.borrow_mut().pop();
+    pub fn pop_frame(&mut self) {
+        self.frames.pop();
     }
 
     pub fn cur_frame(&self) -> &Frame {
         self.frames
-            .borrow()
             .iter()
             .rev()
             .next()

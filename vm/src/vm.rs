@@ -1,8 +1,6 @@
-use crate::{
-    class::Oop,
-    class_loader::BootstrapClassLoader,
-    jvm_thread::JvmThread,
-};
+use std::ptr::NonNull;
+use crate::heap::{AllocRaw, Heap};
+use crate::{class::Value, class_loader::BootstrapClassLoader, jvm_thread::JvmThread, HEAP};
 
 struct Vm {
     class_loader: BootstrapClassLoader,
@@ -21,26 +19,24 @@ impl Vm {
             .load("Main");
         let main_method = main_class
             .get_method("main", "([Ljava/lang/String;)V");
-        let java_main_thread = JvmThread::new(&self.class_loader);
+        let mut java_main_thread = JvmThread::new(&self.class_loader);
         java_main_thread.invoke(None, main_method, main_class, args_oop.clone());
     }
 
-    fn new_string_array(&self, args: Vec<&str>) -> Vec<Oop> {
-        let string_array_class = self
-            .class_loader
-            .load("[java/lang/String");
+    fn new_string_array(&self, args: Vec<&str>) -> Vec<Value> {
+        let string_arr_class = self.class_loader.load("[Ljava/lang/String");
         for arg in args.iter(){
             //todo allocate arg oop
         }
         todo!()
     }
 
-    fn new_string(&self, s: &str) -> Oop {
+    fn new_string(&self, s: &str) -> Value {
         let char_array_klass = self.class_loader.load("[C");
         let string_klass = self
             .class_loader
             .load("java/lang/String");
-        let char_array: Vec<Oop> = s.encode_utf16().map(|c| Oop::Int(c as i32)).collect();
+        let char_array: Vec<Value> = s.encode_utf16().map(|c| Value::Int(c as i32)).collect();
         todo!()
     }
 }

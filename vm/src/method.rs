@@ -1,4 +1,3 @@
-use gc::{Finalize, Trace};
 use reader::{
     attribute_info::AttributeInfo,
     constant_pool::ConstantPool,
@@ -7,7 +6,7 @@ use reader::{
 };
 
 use crate::instructions::Instruction;
-#[derive(Debug, Clone, Trace, Finalize)]
+#[derive(Debug, Clone)]
 struct ExceptionEntry {
     start_pc: U2,
     end_pc: U2,
@@ -15,7 +14,7 @@ struct ExceptionEntry {
     catch_type: U2,
 }
 
-#[derive(Debug, Trace, Finalize, Clone)]
+#[derive(Debug, Clone)]
 pub struct ByteCodes(Vec<U1>);
 
 impl ByteCodes {
@@ -309,7 +308,7 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
     }
 }
 
-#[derive(Debug, Trace, Finalize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Code {
     pub max_stack: U2,
     pub max_locals: U2,
@@ -317,7 +316,7 @@ pub struct Code {
     exception_table_length: U2,
     exception_table: Vec<ExceptionEntry>,
 }
-#[derive(Debug, Trace, Finalize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Method {
     access_flags: U2,
     name: String,
