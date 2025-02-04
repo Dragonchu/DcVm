@@ -37,10 +37,11 @@ impl BootstrapClassLoader {
         } else {
             Klass::Instance(self.do_load_instance(class_name))
         };
+        let class_id = klass.get_class_id();
         self.name_id
             .borrow_mut()
-            .insert(String::from(class_name), self.nxt_id.get());
-        self.classes.borrow_mut().insert(self.nxt_id.get(), klass.clone());
+            .insert(String::from(class_name), class_id);
+        self.classes.borrow_mut().insert(class_id, klass.clone());
         self.nxt_id.set(self.nxt_id.get() + 1);
         klass
     }
@@ -52,7 +53,7 @@ impl BootstrapClassLoader {
             .take_while(|&ch| ch == '[')
             .count();
         let element_type = self.load_element_type(&class_name[1..]);
-        Klass::new_array(dimension_size, element_type)
+        Klass::new_array(dimension_size, element_type, self.nxt_id.get())
     }
 
     fn load_element_type(&self, element_type: &str) -> ComponentType {
@@ -82,11 +83,14 @@ impl BootstrapClassLoader {
         if let Some(r_class_name) = class_name.strip_prefix('L') {
             return self.do_load_instance(r_class_name);
         }
+        if let Some(r_class_name) = class_name.strip_suffix(';') {
+            return self.do_load_instance(r_class_name);
+        }
         let class_file = self
             .class_path_manager
             .search_class(class_name)
             .unwrap_or_else(|_| panic!("class {} not found", class_name));
-        Klass::new_instance(&class_file)
+        Klass::new_instance(&class_file, self.nxt_id.get())
     }
 }
 
@@ -96,7 +100,7 @@ mod tests {
     #[test]
     fn load_main_class() {
         let mut cl = BootstrapClassLoader::new("resources/test");
-        let klass_ref = cl.load("LMain");
+        let klass_ref = cl.load("LMain;");
         println!("{:?}", klass_ref);
     }
 
@@ -105,5 +109,13 @@ mod tests {
         let mut cl = BootstrapClassLoader::new("resources/test");
         let klass_ref = cl.load("[[D");
         println!("{:?}", klass_ref);
+    }
+    
+    #[test]
+    fn get_main_method() {
+        let mut cl = BootstrapClassLoader::new("resources/test");
+        let klass_ref = cl.load("LMain;");
+        let method = klass_ref.get_method("main", "([Ljava/lang/String;)V");
+        println!("{:?}", method);
     }
 }

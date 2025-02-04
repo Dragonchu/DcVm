@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::class::{Klass, Value};
-use crate::heap::ObjPtr;
+use crate::heap::Oop;
 use crate::method::Method;
 enum Variable {
     Boolean(bool),
@@ -50,10 +50,10 @@ impl Stack {
     }
     pub fn add_frame(
         &mut self,
-        receiver: Option<ObjPtr>,
+        receiver: Option<Oop>,
         method: Method,
         class: Klass,
-        args: Vec<ObjPtr>,
+        args: Vec<Oop>,
     ) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
@@ -61,7 +61,7 @@ impl Stack {
         let mut locals: Vec<Value> = receiver
             .into_iter()
             .chain(args.into_iter())
-            .map(|obj| obj.into())
+            .map(|obj| Value::Obj(obj))
             .collect();
         while locals.len() < max_locals {
             locals.push(Value::Uninitialized)

@@ -1,5 +1,5 @@
 use crate::field::Field;
-use crate::heap::ObjPtr;
+use crate::heap::Oop;
 use crate::method::Method;
 use reader::class_file::ClassFile;
 use reader::constant_pool::{ConstantPool, CpInfo};
@@ -13,16 +13,13 @@ pub enum ClassState {
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Boolean(bool),
-    Byte(i8),
-    Short(i16),
     Int(i32),
     Long(i64),
     Float(f32),
     Double(f64),
-    Char(char),
-    Obj(ObjPtr),
+    Obj(Oop),
     Uninitialized,
+    Null,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +45,7 @@ pub enum Klass {
 
 #[derive(Debug, Clone)]
 pub struct InstanceKlass {
+    pub(crate) class_id: usize,
     pub(crate) class_name: String,
     pub(crate) class_state: ClassState,
     pub(crate) super_class: String,
@@ -59,23 +57,30 @@ pub struct InstanceKlass {
 }
 
 impl InstanceKlass {
-    pub fn get_method(&self, name: &str, args: &str) -> Method {
-        todo!()
+    pub fn get_method(&self, name: &str, desc: &str) -> Method {
+        let key = format!("{name}_{desc}");
+        self.methods.get(&key).unwrap().clone()
     }
 
     pub fn get_field_info(&self, index: U2) -> &Field {
         todo!()
     }
+    
+    pub fn get_instance_field_cnt(&self) -> usize {
+        self.instance_fields.len()
+    }
+    
 }
 
 #[derive(Debug, Clone)]
 pub struct ArrayKlass {
+    pub(crate) class_id: usize,
     pub(crate) dimension: usize,
     pub(crate) component_type: ComponentType,
 }
 
 impl Klass {
-    pub fn new_instance(class_file: &ClassFile) -> InstanceKlass {
+    pub fn new_instance(class_file: &ClassFile, class_id: usize) -> InstanceKlass {
         let cp = &class_file.constant_pool;
 
         let mut methods = HashMap::new();
@@ -99,6 +104,7 @@ impl Klass {
         }
 
         InstanceKlass {
+            class_id,
             class_name: class_file.get_class_name(),
             class_state: ClassState::LOADED,
             super_class: class_file.get_super_class_name(),
@@ -110,16 +116,17 @@ impl Klass {
         }
     }
 
-    pub fn new_array(dimension: usize, component_type: ComponentType) -> ArrayKlass {
+    pub fn new_array(dimension: usize, component_type: ComponentType, class_id: usize) -> ArrayKlass {
         ArrayKlass {
+            class_id,
             dimension,
             component_type,
         }
     }
 
-    pub fn get_method(&self, name: &str,args: &str) -> Method {
+    pub fn get_method(&self, name: &str, desc: &str) -> Method {
         match self {
-            Klass::Instance(instance) => instance.get_method(name, args),
+            Klass::Instance(instance) => instance.get_method(name, desc),
             _ => panic!(),
         }
     }
@@ -128,6 +135,24 @@ impl Klass {
         match self {
             Klass::Instance(intance) => intance.get_field_info(index),
             _ => panic!(),
+        }
+    }
+    
+    pub fn get_class_id(&self) -> usize {
+        match self {
+            Klass::Instance(instance) => {instance.class_id}
+            Klass::Array(array) => {array.class_id}
+        }
+    }
+    
+    pub fn get_instance_field_cnt(&self) -> usize {
+        match self {
+            Klass::Instance(instance) => {
+                instance.instance_fields.len()
+            }
+            Klass::Array(array) => {
+                panic!()
+            }
         }
     }
 }

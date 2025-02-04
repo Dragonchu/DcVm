@@ -372,7 +372,7 @@ impl Method {
     pub fn get_unique_key(&self) -> String {
         let name = self.name.clone();
         let descriptor = self.descriptor.clone();
-        format!("{name} {descriptor}")
+        format!("{name}_{descriptor}")
     }
 
     pub fn get_name(&self) -> String {

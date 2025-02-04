@@ -1,20 +1,16 @@
-use std::sync::LazyLock;
+use std::cell::LazyCell;
+use std::sync::{LazyLock, Mutex};
 use heap::Heap;
 
 mod runtime_constant_pool;
 mod class_loader;
-mod class;
-mod jvm_thread;
+pub mod class;
+pub mod jvm_thread;
 mod native_method;
 mod pc_register;
 mod stack;
-mod vm;
+pub mod vm;
 mod method;
 mod instructions;
 mod field;
 pub mod heap;
-
-static HEAP: LazyLock<Heap> = LazyLock::new(|| {
-    let heap = Heap::new();
-    heap
-});
