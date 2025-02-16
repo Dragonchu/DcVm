@@ -2,10 +2,12 @@ use std::alloc::Layout;
 use std::cell::Cell;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::class::{ArrayKlass, InstanceKlass, Klass, Value};
+use crate::class::{ArrayKlass, InstanceKlass, Klass};
 use bitfield_struct::bitfield;
 use std::ptr::NonNull;
 use log::debug;
+use reader::types::{U1, U2, U4, U8};
+use crate::JvmValue;
 
 #[bitfield(u64)]
 #[derive(PartialEq, Eq)]
@@ -23,22 +25,30 @@ struct Header {
     pub(crate) size: usize,
 }
 
-#[derive(Clone, Debug)]
-pub struct Oop(*mut u8);
+#[derive(Clone, Debug, Copy)]
+pub struct RawPtr(*mut u8);
 
-impl Oop {
-    pub fn set_element(&mut self, value: Value, index: usize) {
+impl RawPtr {
+    pub fn put_field(&mut self, value: JvmValue, index: usize) {
         unsafe {
             let ptr = self.0.add(index);
             match value {
-                Value::Int(int) => std::ptr::write(ptr as *mut i32, int),
-                Value::Long(long) => std::ptr::write(ptr as *mut i64, long),
-                Value::Float(float) => std::ptr::write(ptr as *mut f32, float),
-                Value::Double(double) => std::ptr::write(ptr as *mut f64, double),
-                Value::Uninitialized | Value::Null => std::ptr::write(ptr as *mut u64, 0),
-                Value::Obj(oop) => std::ptr::write(ptr as *mut Oop, oop),
+                JvmValue::Boolean(val) => std::ptr::write(ptr as *mut U1, val),
+                JvmValue::Byte(val) => std::ptr::write(ptr as *mut U1, val),
+                JvmValue::Short(val) => std::ptr::write(ptr as *mut U2, val),
+                JvmValue::Int(val) => std::ptr::write(ptr as *mut U4, val),
+                JvmValue::Long(val) => std::ptr::write(ptr as *mut U8, val),
+                JvmValue::Float(val) => std::ptr::write(ptr as *mut U8, val),
+                JvmValue::Double(val) => std::ptr::write(ptr as *mut U8, val),
+                JvmValue::Char(val) => std::ptr::write(ptr as *mut U2, val),
+                JvmValue::ObjRef(val) => std::ptr::write(ptr as *mut RawPtr, val),
+                JvmValue::Null => std::ptr::write(ptr, 0),
             }
         }
+    }
+    
+    pub fn get_field_value(&self, klass: &InstanceKlass, index: usize) -> JvmValue {
+       todo!() 
     }
 }
 
@@ -115,7 +125,7 @@ impl MemoryChunk {
     }
 
     /// Allocates from the chunk, or returns None if there is not enough space
-    fn alloc(&mut self, required_size: usize) -> Option<Oop> {
+    fn alloc(&mut self, required_size: usize) -> Option<RawPtr> {
         if self.used + required_size > self.capacity {
             return None;
         }
@@ -126,7 +136,7 @@ impl MemoryChunk {
         let ptr = unsafe { self.memory.add(self.used) };
         self.used += required_size;
 
-        Some(Oop(ptr)) 
+        Some(RawPtr(ptr))
     }
 
     unsafe fn contains(&self, ptr: *const u8) -> bool {
@@ -159,7 +169,7 @@ impl Heap {
 }
 
 impl Heap {
-    pub(crate) fn alloc(&mut self, klass: &Klass) -> Result<Oop, AllocError> {
+    pub(crate) fn alloc(&mut self, klass: &Klass) -> Result<RawPtr, AllocError> {
         match klass {
             Klass::Instance(instance) => {
                 let header_size = size_of::<Header>();
@@ -173,7 +183,7 @@ impl Heap {
         }
     }
 
-    pub(crate) fn alloc_array(&mut self, klass: &Klass, length: usize) -> Result<Oop, AllocError> {
+    pub(crate) fn alloc_array(&mut self, klass: &Klass, length: usize) -> Result<RawPtr, AllocError> {
         match klass {
             Klass::Instance(_) => {
                 panic!()
@@ -188,12 +198,12 @@ impl Heap {
             }
         }
     }
-    
-    fn initial_oop(klass: &InstanceKlass, oop: Oop) -> Oop {
+
+    fn initial_oop(klass: &InstanceKlass, oop: RawPtr) -> RawPtr {
         oop
     }
-    
-    fn initial_array_oop(klass: &ArrayKlass, oop: Oop) -> Oop {
+
+    fn initial_array_oop(klass: &ArrayKlass, oop: RawPtr) -> RawPtr {
         oop
     }
 

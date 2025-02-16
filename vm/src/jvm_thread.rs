@@ -1,14 +1,13 @@
+use std::alloc::System;
+use crate::class::Klass;
+use crate::heap::RawPtr;
+use crate::vm::Vm;
 use crate::{
-    class::{Value},
-    class_loader::BootstrapClassLoader,
     instructions::Instruction,
     method::Method,
     pc_register::PcRegister,
     stack::Stack,
 };
-use crate::class::Klass;
-use crate::heap::{Oop};
-use crate::vm::Vm;
 
 pub struct JvmThread {
     pc_register: PcRegister,
@@ -28,10 +27,10 @@ impl JvmThread {
 
     pub fn invoke(
         &mut self,
-        receiver: Option<Oop>,
+        receiver: Option<RawPtr>,
         method: Method,
         class: Klass,
-        args: Vec<Oop>,
+        args: Vec<RawPtr>,
         vm: &mut Vm,
     ) {
         self.stack.add_frame(receiver, method, class, args);
@@ -39,7 +38,7 @@ impl JvmThread {
         self.stack.pop_frame();
     }
 
-    fn execute(&self, vm: &mut Vm) {
+    fn execute(&mut self, vm: &mut Vm) {
         let cur_frame = self.stack.cur_frame();
         let cur_method = cur_frame.get_cur_method();
         let cur_class = cur_frame.get_cur_class();
@@ -49,8 +48,9 @@ impl JvmThread {
                 Instruction::Getstatic(field_index) => {
                     let (klass_name, field_name, desc)=
                         cur_class.get_field_info(field_index);
-                    let field_class = vm.load(&klass_name);
-                    println!("Getstatic: {:?}", field_class)
+                    let klass = vm.load(&klass_name);
+                    let value = klass.get_static_instance(&field_name, &desc);
+                    self.stack.cur_frame().push_value(value);
                 }
                 _ => {
                     println!("{:?}", instruction)

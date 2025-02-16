@@ -1,3 +1,8 @@
+#![allow(non_snake_case)]
+#![allow(unused_variables)]
+#![allow(non_camel_case_types)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
 pub mod attribute_info;
 mod class_file_parse;
 pub mod class_file;

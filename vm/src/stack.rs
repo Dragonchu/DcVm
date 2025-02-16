@@ -1,8 +1,9 @@
 use core::fmt;
 
-use crate::class::{Klass, Value};
-use crate::heap::Oop;
+use crate::class::Klass;
+use crate::heap::RawPtr;
 use crate::method::Method;
+use crate::JvmValue;
 enum Variable {
     Boolean(bool),
     Byte(i8),
@@ -20,8 +21,8 @@ enum Variable {
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    local_variables: Vec<Value>,
-    operand_stack: Vec<Value>,
+    local_variables: Vec<JvmValue>,
+    operand_stack: Vec<JvmValue>,
     method: Method,
     class: Klass,
 }
@@ -31,6 +32,9 @@ impl Frame {
     }
     pub fn get_cur_class(&self) -> Klass {
         self.class.clone()
+    }
+    pub fn push_value(&mut self, value: JvmValue) {
+        self.operand_stack.push(value);
     }
 }
 
@@ -50,21 +54,21 @@ impl Stack {
     }
     pub fn add_frame(
         &mut self,
-        receiver: Option<Oop>,
+        receiver: Option<RawPtr>,
         method: Method,
         class: Klass,
-        args: Vec<Oop>,
+        args: Vec<RawPtr>,
     ) {
         let code = method.get_code();
         let max_locals = code.max_locals as usize;
         let max_stack = code.max_stack as usize;
-        let mut locals: Vec<Value> = receiver
+        let mut locals: Vec<JvmValue> = receiver
             .into_iter()
             .chain(args.into_iter())
-            .map(|obj| Value::Obj(obj))
+            .map(|obj| JvmValue::ObjRef(obj))
             .collect();
         while locals.len() < max_locals {
-            locals.push(Value::Uninitialized)
+            locals.push(JvmValue::Null)
         }
         let frame = Frame {
             local_variables: locals.clone(),
@@ -79,7 +83,7 @@ impl Stack {
         self.frames.pop();
     }
 
-    pub fn cur_frame(&self) -> &Frame {
-        self.frames.iter().rev().next().expect("No more frame")
+    pub fn cur_frame(&mut self) -> &mut Frame {
+        self.frames.iter_mut().rev().next().expect("No more frame")
     }
 }

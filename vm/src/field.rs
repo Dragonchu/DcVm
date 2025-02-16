@@ -3,6 +3,7 @@ use reader::{
     field_info::FieldInfo,
     types::{ACC_STATIC, U2},
 };
+use crate::JvmValue;
 
 pub enum ValueType {
     Void,
@@ -32,6 +33,10 @@ impl Field {
             access_flags: field_info.access_flags,
         }
     }
+    
+    pub fn get_fq_name_desc(&self) -> String {
+        format!("{}.{}", self.name, self.descriptor)
+    }
 
     pub fn get_name(&self) -> String {
         self.name.clone()
@@ -43,5 +48,19 @@ impl Field {
 
     pub fn is_static(&self) -> bool {
         self.access_flags & ACC_STATIC == ACC_STATIC
+    }
+    
+    pub fn get_default(&self) -> JvmValue {
+        match self.descriptor.as_str() {
+            "Z" => JvmValue::Boolean(0),
+            "B" => JvmValue::Byte(0),
+            "S" => JvmValue::Short(0),
+            "C" => JvmValue::Char(0),
+            "I" => JvmValue::Int(0),
+            "J" => JvmValue::Long(0),
+            "F" => JvmValue::Float(0),
+            "D" => JvmValue::Double(0),
+            _ => JvmValue::Null,
+        }
     }
 }

@@ -565,6 +565,7 @@ name = "vm"
 version = "0.1.0"
 dependencies = [
  "bitfield-struct",
+ "lazy_static",
  "log",
  "once_cell",
  "reader",
