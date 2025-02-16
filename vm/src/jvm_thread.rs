@@ -47,9 +47,9 @@ impl JvmThread {
         for instruction in code.byte_codes.iter() {
             match instruction {
                 Instruction::Getstatic(field_index) => {
-                    let filed=
+                    let (klass_name, field_name, desc)=
                         cur_class.get_field_info(field_index);
-                    let field_class = vm.load(&filed.get_name());
+                    let field_class = vm.load(&klass_name);
                     println!("Getstatic: {:?}", field_class)
                 }
                 _ => {

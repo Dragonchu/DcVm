@@ -62,8 +62,8 @@ impl InstanceKlass {
         self.methods.get(&key).unwrap().clone()
     }
 
-    pub fn get_field_info(&self, index: U2) -> &Field {
-        todo!()
+    pub fn get_field_info(&self, index: U2) -> (String, String, String) {
+        self.cp.get_field_info(index)
     }
     
     pub fn get_instance_field_cnt(&self) -> usize {
@@ -131,7 +131,7 @@ impl Klass {
         }
     }
 
-    pub fn get_field_info(&self, index: U2) -> &Field {
+    pub fn get_field_info(&self, index: U2) -> (String, String, String) {
         match self {
             Klass::Instance(intance) => intance.get_field_info(index),
             _ => panic!(),

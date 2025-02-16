@@ -14,7 +14,7 @@ impl Vm {
         }
     }
     
-    pub fn load(&mut self, class_name: &str) -> Klass {
+    pub fn load(&self, class_name: &str) -> Klass {
         self.class_loader.load(class_name)
     }
 
