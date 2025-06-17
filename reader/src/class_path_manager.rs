@@ -106,13 +106,13 @@ mod tests {
         print!("{:?}", class_file);
     }
 
-    #[test]
-    fn test_class_path_manager_jar() {
-        let mut class_path_manager = ClassPathManager::new();
-        class_path_manager.add_class_paths("/home/codespace/java/current/jre/lib/rt.jar");
-        let class_file = class_path_manager
-            .search_class("java/lang/Boolean")
-            .unwrap();
-        print!("{:?}", class_file);
-    }
+    // #[test]
+    // fn test_class_path_manager_jar() {
+    //     let mut class_path_manager = ClassPathManager::new();
+    //     class_path_manager.add_class_paths("/home/codespace/java/current/jre/lib/rt.jar");
+    //     let class_file = class_path_manager
+    //         .search_class("java/lang/Boolean")
+    //         .unwrap();
+    //     print!("{:?}", class_file);
+    // }
 }

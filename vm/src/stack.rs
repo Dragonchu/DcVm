@@ -36,6 +36,21 @@ impl Frame {
     pub fn push_value(&mut self, value: JvmValue) {
         self.operand_stack.push(value);
     }
+    pub fn pop_value(&mut self) -> JvmValue {
+        self.operand_stack.pop().expect("Stack underflow")
+    }
+    pub fn get_local(&self, index: usize) -> JvmValue {
+        self.local_variables.get(index).expect("Invalid local variable index").clone()
+    }
+    pub fn set_local(&mut self, index: usize, value: JvmValue) {
+        if index >= self.local_variables.len() {
+            panic!("Invalid local variable index");
+        }
+        self.local_variables[index] = value;
+    }
+    pub fn peek_value(&self) -> Option<&JvmValue> {
+        self.operand_stack.last()
+    }
 }
 
 pub struct Stack {
@@ -59,9 +74,8 @@ impl Stack {
         class: Klass,
         args: Vec<RawPtr>,
     ) {
-        let code = method.get_code();
-        let max_locals = code.max_locals as usize;
-        let max_stack = code.max_stack as usize;
+        let max_locals = method.max_locals;
+        let max_stack = method.max_stack;
         let mut locals: Vec<JvmValue> = receiver
             .into_iter()
             .chain(args.into_iter())

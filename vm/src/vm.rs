@@ -1,10 +1,11 @@
 use crate::heap::{AllocError, Heap, RawPtr};
 use crate::{class_loader::BootstrapClassLoader, jvm_thread::JvmThread, };
 use crate::class::Klass;
+use crate::error::JvmError;
 
 pub struct Vm {
+    pub heap: Heap,
     class_loader: BootstrapClassLoader,
-    heap: Heap,
 }
 impl Vm {
     pub fn new(paths: &str) -> Vm {
@@ -14,7 +15,7 @@ impl Vm {
         }
     }
     
-    pub fn load(&mut self, class_name: &str) -> Klass {
+    pub fn load(&mut self, class_name: &str) -> Result<Klass, JvmError> {
         self.class_loader.load(class_name, &mut self.heap)
     }
 

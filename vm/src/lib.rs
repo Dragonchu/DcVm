@@ -4,31 +4,33 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 use crate::heap::RawPtr;
-use reader::types::{U1, U2, U4, U8};
 
 pub mod class;
-mod class_loader;
-mod field;
+pub mod class_loader;
+pub mod error;
+pub mod field;
 pub mod heap;
-mod instructions;
+pub mod instructions;
 pub mod jvm_thread;
-mod method;
-mod native_method;
-mod pc_register;
-mod runtime_constant_pool;
-mod stack;
+pub mod method;
+pub mod native_method;
+pub mod pc_register;
+pub mod runtime_constant_pool;
+pub mod stack;
 pub mod vm;
+pub mod operand_stack;
+pub mod local_vars;
 
 #[derive(Debug, Clone, Copy)]
 pub enum JvmValue {
-    Boolean(U1),
-    Byte(U1),
-    Short(U2),
-    Int(U4),
-    Long(U8),
-    Float(U8),
-    Double(U8),
-    Char(U2),
+    Boolean(u8),
+    Byte(u8),
+    Short(u16),
+    Int(u32),
+    Long(u64),
+    Float(u64),
+    Double(u64),
+    Char(u16),
     ObjRef(RawPtr),
     Null,
 }
@@ -74,13 +76,13 @@ impl JvmValue {
         }
     }
     
-    value_as!(as_bool: Boolean(U1));
-    value_as!(as_byte: Byte(U1));
-    value_as!(as_short: Short(U2));
-    value_as!(as_int: Int(U4));
-    value_as!(as_long: Long(U8));
-    value_as!(as_float: Float(U8));
-    value_as!(as_double: Double(U8));
-    value_as!(as_char: Char(U2));
+    value_as!(as_bool: Boolean(u8));
+    value_as!(as_byte: Byte(u8));
+    value_as!(as_short: Short(u16));
+    value_as!(as_int: Int(u32));
+    value_as!(as_long: Long(u64));
+    value_as!(as_float: Float(u64));
+    value_as!(as_double: Double(u64));
+    value_as!(as_char: Char(u16));
     value_as!(as_obj_ref: ObjRef(RawPtr));
 }

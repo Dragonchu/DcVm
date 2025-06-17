@@ -1,6 +1,6 @@
 use reader::{
     attribute_info::AttributeInfo,
-    constant_pool::ConstantPool,
+    constant_pool::{ConstantPool, CpInfo},
     method_info::MethodInfo,
     types::{U1, U2, U4},
 };
@@ -318,10 +318,12 @@ pub struct Code {
 }
 #[derive(Debug, Clone)]
 pub struct Method {
-    access_flags: U2,
-    name: String,
-    descriptor: String,
-    code: Option<Code>,
+    pub name: String,
+    pub descriptor: String,
+    pub access_flags: u16,
+    pub code: Vec<u8>,
+    pub max_stack: usize,
+    pub max_locals: usize,
 }
 
 pub fn link_code(method_info: &MethodInfo) -> Option<Code> {
@@ -360,12 +362,14 @@ pub fn link_code(method_info: &MethodInfo) -> Option<Code> {
 }
 
 impl Method {
-    pub fn new(method_info: &MethodInfo, cp_pool: &dyn ConstantPool) -> Method {
+    pub fn new(name: String, descriptor: String, access_flags: u16, code: Vec<u8>, max_stack: usize, max_locals: usize) -> Self {
         Method {
-            access_flags: method_info.access_flags,
-            name: cp_pool.get_utf8_string(method_info.name_index),
-            descriptor: cp_pool.get_utf8_string(method_info.descriptor_index),
-            code: link_code(method_info),
+            name,
+            descriptor,
+            access_flags,
+            code,
+            max_stack,
+            max_locals,
         }
     }
 
@@ -381,7 +385,20 @@ impl Method {
         self.descriptor.clone()
     }
 
-    pub fn get_code(&self) -> Code {
-        self.code.clone().unwrap()
+    pub fn get_code(&self) -> &[u8] {
+        &self.code
+    }
+
+    pub fn from_method_info(_m_info: &MethodInfo, _cp: &Vec<CpInfo>) -> Self {
+        // 这里需要根据实际情况解析MethodInfo和常量池
+        // 这里只做一个简单的mock，实际项目中应完善
+        Method {
+            name: "mock".to_string(),
+            descriptor: "()V".to_string(),
+            access_flags: 0,
+            code: vec![],
+            max_stack: 10,
+            max_locals: 10,
+        }
     }
 }

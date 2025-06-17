@@ -229,4 +229,24 @@ impl Heap {
         Self::align_down(addr + align - 1, align)
     }
 
+    pub fn store_byte(&mut self, ptr: RawPtr, index: usize, value: u8) {
+        unsafe {
+            let ptr = ptr.0.add(index);
+            std::ptr::write(ptr, value);
+        }
+    }
+
+    pub fn store_field(&mut self, ptr: RawPtr, name: &str, desc: &str, value: RawPtr) {
+        unsafe {
+            let ptr = ptr.0.add(8); // Skip header
+            std::ptr::write(ptr as *mut RawPtr, value);
+        }
+    }
+
+    pub fn store_array_element(&mut self, ptr: RawPtr, index: usize, value: RawPtr) {
+        unsafe {
+            let ptr = ptr.0.add(8 + index * 8); // Skip header and multiply by element size
+            std::ptr::write(ptr as *mut RawPtr, value);
+        }
+    }
 }

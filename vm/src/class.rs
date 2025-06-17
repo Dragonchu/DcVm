@@ -57,7 +57,7 @@ impl InstanceKlass {
         let mut m_name_desc_lookup = HashMap::new();
         let mut methods = Vec::new();
         for (idx, m_info) in (&class_file.methods).iter().enumerate() {
-            let method = Method::new(m_info, cp);
+            let method = Method::from_method_info(m_info, cp);
             m_name_desc_lookup.insert(method.get_fq_name_desc().clone(), idx);
             methods.push(method);
         }
@@ -117,6 +117,14 @@ impl InstanceKlass {
             Some(value) => value.clone(),
         };
         self.s_field_val[idx]
+    }
+
+    pub fn get_static_fields(&self) -> &Vec<Field> {
+        &self.s_fields
+    }
+
+    pub fn get_static_field_values(&self) -> &Vec<JvmValue> {
+        &self.s_field_val
     }
 }
 
