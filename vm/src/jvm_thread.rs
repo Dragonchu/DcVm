@@ -3,6 +3,7 @@ use crate::heap::Heap;
 use crate::method::Method;
 use crate::operand_stack::OperandStack;
 use crate::local_vars::LocalVars;
+use reader::constant_pool::ConstantPool;
 
 pub struct JvmThread {
     pub pc: usize,
@@ -39,6 +40,14 @@ impl JvmThread {
                     let byte = code[self.pc] as i8;
                     self.pc += 1;
                     self.stack.push_int(byte as i32);
+                }
+                0x11 => {
+                    // sipush
+                    let high = code[self.pc] as i16;
+                    let low = code[self.pc + 1] as i16;
+                    self.pc += 2;
+                    let value = ((high << 8) | (low & 0xFF)) as i16;
+                    self.stack.push_int(value as i32);
                 }
                 0x15 => {
                     let index = code[self.pc] as usize;
@@ -147,6 +156,83 @@ impl JvmThread {
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
                     println!("invokestatic {}", index);
+                }
+                0xb3 => {
+                    // putstatic
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    println!("putstatic {}", index);
+                    // TODO: 实现静态字段设置逻辑
+                }
+                0x12 => {
+                    // ldc
+                    let index = code[self.pc] as usize;
+                    self.pc += 1;
+                    let cp = &method.constant_pool;
+                    match &cp[index - 1] {
+                        reader::constant_pool::CpInfo::Integer { bytes, .. } => {
+                            let value = *bytes as i32;
+                            self.stack.push_int(value);
+                        }
+                        reader::constant_pool::CpInfo::Float { bytes, .. } => {
+                            let value = f32::from_bits(*bytes);
+                            self.stack.push_int(value.to_bits() as i32);
+                        }
+                        reader::constant_pool::CpInfo::String { string_index, .. } => {
+                            let s = cp.get_utf8_string(*string_index);
+                            println!("ldc string: {}", s);
+                            // TODO: 支持字符串对象入栈
+                        }
+                        _ => {
+                            return Err(JvmError::IllegalStateError(format!("ldc: 常量池索引{}类型不支持", index)));
+                        }
+                    }
+                }
+                0x13 => {
+                    // ldc_w
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    let cp = &method.constant_pool;
+                    match &cp[index - 1] {
+                        reader::constant_pool::CpInfo::Integer { bytes, .. } => {
+                            let value = *bytes as i32;
+                            self.stack.push_int(value);
+                        }
+                        reader::constant_pool::CpInfo::Float { bytes, .. } => {
+                            let value = f32::from_bits(*bytes);
+                            self.stack.push_int(value.to_bits() as i32);
+                        }
+                        reader::constant_pool::CpInfo::String { string_index, .. } => {
+                            let s = cp.get_utf8_string(*string_index);
+                            println!("ldc_w string: {}", s);
+                            // TODO: 支持字符串对象入栈
+                        }
+                        _ => {
+                            return Err(JvmError::IllegalStateError(format!("ldc_w: 常量池索引{}类型不支持", index)));
+                        }
+                    }
+                }
+                0x14 => {
+                    // ldc2_w
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    let cp = &method.constant_pool;
+                    match &cp[index - 1] {
+                        reader::constant_pool::CpInfo::Long { high_bytes, low_bytes, .. } => {
+                            let value = ((*high_bytes as u64) << 32) | (*low_bytes as u64);
+                            println!("ldc2_w long: {} (仅低32位入栈)", value);
+                            self.stack.push_int((value & 0xFFFF_FFFF) as i32);
+                        }
+                        reader::constant_pool::CpInfo::Double { high_bytes, low_bytes, .. } => {
+                            let bits = ((*high_bytes as u64) << 32) | (*low_bytes as u64);
+                            let value = f64::from_bits(bits);
+                            println!("ldc2_w double: {} (仅低32位入栈)", value);
+                            self.stack.push_int((bits & 0xFFFF_FFFF) as i32);
+                        }
+                        _ => {
+                            return Err(JvmError::IllegalStateError(format!("ldc2_w: 常量池索引{}不是long/double", index)));
+                        }
+                    }
                 }
                 0xb6 => {
                     // invokevirtual

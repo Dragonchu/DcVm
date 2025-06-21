@@ -31,17 +31,19 @@ impl ClassPathManager {
     }
 
     pub fn add_class_path(&mut self, path: &str) {
-        let md = fs::metadata(&path).expect("Invalid class path");
+        let abs_path = std::fs::canonicalize(path).expect("Invalid class path");
+        println!("[ClassPathManager] 添加类路径: {}", abs_path.display());
+        let md = fs::metadata(&abs_path).expect("Invalid class path");
         let source = if md.is_dir() {
             ClassPathEntry::DIR {
-                path: String::from(path),
+                path: abs_path.display().to_string(),
             }
-        } else if md.is_file() && path.ends_with(".jar") {
+        } else if md.is_file() && abs_path.to_string_lossy().ends_with(".jar") {
             ClassPathEntry::JAR {
-                path: String::from(path),
+                path: abs_path.display().to_string(),
             }
         } else {
-            panic!("Invalid class path: {}", path);
+            panic!("Invalid class path: {}", abs_path.display());
         };
         self.run_time_class_path.push(source);
     }
@@ -54,6 +56,8 @@ impl ClassPathManager {
 
     pub fn search_class(&self, class_name: &str) -> Result<ClassFile, ClassNotFoundError> {
         let file_name = class_name
+            .trim_start_matches('L')
+            .trim_end_matches(';')
             .replace("/", std::path::MAIN_SEPARATOR_STR)
             .replace(".", std::path::MAIN_SEPARATOR_STR)
             + ".class";
@@ -61,7 +65,8 @@ impl ClassPathManager {
             match entry {
                 ClassPathEntry::DIR { path } => {
                     let fname = std::path::Path::new(&path).join(&file_name);
-                    match fs::File::open(fname) {
+                    println!("[ClassPathManager] 查找类文件: {}", fname.display());
+                    match fs::File::open(&fname) {
                         Ok(file) => {
                             let reader = BufReader::new(file);
                             let class_file = ClassFileParser::file(reader).parse();
@@ -72,6 +77,7 @@ impl ClassPathManager {
                 }
                 ClassPathEntry::JAR { path } => {
                     let fname = std::path::Path::new(&path);
+                    println!("[ClassPathManager] 查找JAR文件: {}，类: {}", fname.display(), file_name);
                     match fs::File::open(fname) {
                         Ok(file) => {
                             let reader = BufReader::new(file);

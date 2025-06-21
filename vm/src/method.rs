@@ -324,6 +324,7 @@ pub struct Method {
     pub code: Vec<u8>,
     pub max_stack: usize,
     pub max_locals: usize,
+    pub constant_pool: Vec<CpInfo>,
 }
 
 pub fn link_code(method_info: &MethodInfo) -> Option<Code> {
@@ -370,6 +371,7 @@ impl Method {
             code,
             max_stack,
             max_locals,
+            constant_pool: Vec::new(),
         }
     }
 
@@ -389,16 +391,42 @@ impl Method {
         &self.code
     }
 
-    pub fn from_method_info(_m_info: &MethodInfo, _cp: &Vec<CpInfo>) -> Self {
-        // 这里需要根据实际情况解析MethodInfo和常量池
-        // 这里只做一个简单的mock，实际项目中应完善
+    pub fn from_method_info(method_info: &MethodInfo, constant_pool: &Vec<CpInfo>) -> Self {
+        // 1. 获取方法名和描述符
+        let name = constant_pool.get_utf8_string(method_info.name_index);
+        let descriptor = constant_pool.get_utf8_string(method_info.descriptor_index);
+        
+        // 2. 获取访问标志
+        let access_flags = method_info.access_flags;
+        
+        // 3. 查找 Code 属性并解析字节码信息
+        let mut code = Vec::new();
+        let mut max_stack = 0;
+        let mut max_locals = 0;
+        
+        for attr in &method_info.attributes {
+            if let AttributeInfo::Code { 
+                max_stack: stack_size, 
+                max_locals: locals_size, 
+                code: bytecode, 
+                .. 
+            } = attr {
+                max_stack = *stack_size as usize;
+                max_locals = *locals_size as usize;
+                code = bytecode.clone();
+                break;
+            }
+        }
+        
+        // 4. 创建 Method 对象
         Method {
-            name: "mock".to_string(),
-            descriptor: "()V".to_string(),
-            access_flags: 0,
-            code: vec![],
-            max_stack: 10,
-            max_locals: 10,
+            name,
+            descriptor,
+            access_flags,
+            code,
+            max_stack,
+            max_locals,
+            constant_pool: constant_pool.clone(),
         }
     }
 }

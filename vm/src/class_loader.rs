@@ -217,12 +217,7 @@ impl BootstrapClassLoader {
     }
 
     fn do_load_instance(&self, class_name: &str, heap: &mut Heap) -> InstanceKlass {
-        if let Some(r_class_name) = class_name.strip_prefix('L') {
-            return self.do_load_instance(r_class_name, heap);
-        }
-        if let Some(r_class_name) = class_name.strip_suffix(';') {
-            return self.do_load_instance(r_class_name, heap);
-        }
+        let class_name = class_name.trim_start_matches('L').trim_end_matches(';');
         let class_file = self
             .class_path_manager
             .search_class(class_name)
