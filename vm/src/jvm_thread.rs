@@ -58,15 +58,35 @@ impl JvmThread {
                     self.stack.push_int(value);
                 }
                 0x1a => {
-                    let index = code[self.pc] as usize;
-                    self.pc += 1;
-                    let value = self.local_vars.get_int(index);
+                    let value = self.local_vars.get_int(0);
                     self.stack.push_int(value);
                 }
                 0x1b => {
-                    let index = code[self.pc] as usize;
-                    self.pc += 1;
-                    let value = self.local_vars.get_int(index);
+                    let value = self.local_vars.get_int(1);
+                    self.stack.push_int(value);
+                }
+                0x1c => {
+                    let value = self.local_vars.get_int(2);
+                    self.stack.push_int(value);
+                }
+                0x1d => {
+                    let value = self.local_vars.get_int(3);
+                    self.stack.push_int(value);
+                }
+                0x2a => {
+                    let value = self.local_vars.get_int(0);
+                    self.stack.push_int(value);
+                }
+                0x2b => {
+                    let value = self.local_vars.get_int(1);
+                    self.stack.push_int(value);
+                }
+                0x2c => {
+                    let value = self.local_vars.get_int(2);
+                    self.stack.push_int(value);
+                }
+                0x2d => {
+                    let value = self.local_vars.get_int(3);
                     self.stack.push_int(value);
                 }
                 0x36 => {
@@ -75,48 +95,56 @@ impl JvmThread {
                     let value = self.stack.pop_int();
                     self.local_vars.set_int(index, value);
                 }
-                0x3c => {
-                    let index = code[self.pc] as usize;
-                    self.pc += 1;
+                0x3b => {
                     let value = self.stack.pop_int();
-                    self.local_vars.set_int(index, value);
+                    self.local_vars.set_int(0, value);
+                }
+                0x3c => {
+                    let value = self.stack.pop_int();
+                    self.local_vars.set_int(1, value);
                 }
                 0x3d => {
-                    let index = code[self.pc] as usize;
-                    self.pc += 1;
                     let value = self.stack.pop_int();
-                    self.local_vars.set_int(index, value);
+                    self.local_vars.set_int(2, value);
+                }
+                0x3e => {
+                    let value = self.stack.pop_int();
+                    self.local_vars.set_int(3, value);
+                }
+                0x4b => {
+                    let obj_ref = self.stack.pop_obj_ref();
+                }
+                0x4c => {
+                    let obj_ref = self.stack.pop_obj_ref();
+                }
+                0x4d => {
+                    let obj_ref = self.stack.pop_obj_ref();
+                }
+                0x4e => {
+                    let obj_ref = self.stack.pop_obj_ref();
                 }
                 0x60 => {
                     let v2 = self.stack.pop_int();
                     let v1 = self.stack.pop_int();
                     self.stack.push_int(v1 + v2);
                 }
-                0x61 => {
+                0x64 => {
                     let v2 = self.stack.pop_int();
                     let v1 = self.stack.pop_int();
                     self.stack.push_int(v1 - v2);
                 }
-                0x62 => {
+                0x68 => {
                     let v2 = self.stack.pop_int();
                     let v1 = self.stack.pop_int();
                     self.stack.push_int(v1 * v2);
                 }
-                0x63 => {
+                0x6c => {
                     let v2 = self.stack.pop_int();
                     let v1 = self.stack.pop_int();
                     if v2 == 0 {
                         return Err(JvmError::ArithmeticError("Division by zero".to_string()));
                     }
                     self.stack.push_int(v1 / v2);
-                }
-                0x64 => {
-                    let v2 = self.stack.pop_int();
-                    let v1 = self.stack.pop_int();
-                    if v2 == 0 {
-                        return Err(JvmError::ArithmeticError("Division by zero".to_string()));
-                    }
-                    self.stack.push_int(v1 % v2);
                 }
                 0x84 => {
                     let index = code[self.pc] as usize;
@@ -132,6 +160,16 @@ impl JvmThread {
                     self.pc += 2;
                     let value = self.stack.pop_int();
                     if value == 0 {
+                        self.pc = ((self.pc as isize) + (offset as isize) - 3) as usize;
+                    }
+                }
+                0x9a => {
+                    let high = code[self.pc] as i16;
+                    let low = code[self.pc + 1] as i16;
+                    let offset = ((high << 8) | (low & 0xFF)) as i16;
+                    self.pc += 2;
+                    let value = self.stack.pop_int();
+                    if value != 0 {
                         self.pc = ((self.pc as isize) + (offset as isize) - 3) as usize;
                     }
                 }
@@ -151,6 +189,9 @@ impl JvmThread {
                     let offset = ((high << 8) | (low & 0xFF)) as i16;
                     self.pc += 2;
                     self.pc = ((self.pc as isize) + (offset as isize) - 3) as usize;
+                }
+                0xac => {
+                    return Ok(());
                 }
                 0xb1 => return Ok(()), // return
                 0xb2 => {
@@ -416,6 +457,138 @@ impl JvmThread {
                     } else {
                         return Err(JvmError::IllegalStateError(format!("invokevirtual: 常量池索引{}不是方法引用", index)));
                     }
+                }
+                0xbb => {
+                    // new
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    println!("new {}", index);
+                    
+                    // 从常量池获取类引用
+                    let cp = &method.constant_pool;
+                    if let reader::constant_pool::CpInfo::Class { name_index, .. } = &cp[index - 1] {
+                        let class_name = cp.get_utf8_string(*name_index);
+                        println!("Creating new object of class: {}", class_name);
+                        
+                        // 简化实现：创建一个假的对象引用
+                        // 在实际实现中，这里应该：
+                        // 1. 加载类（如果还没有加载）
+                        // 2. 在堆上分配内存
+                        // 3. 初始化对象
+                        // 4. 调用构造函数
+                        
+                        let fake_ptr = RawPtr(std::ptr::null_mut());
+                        self.stack.push_obj_ref(fake_ptr);
+                        println!("[Created object: {:?}]", fake_ptr);
+                    } else {
+                        return Err(JvmError::IllegalStateError(format!("new: 常量池索引{}不是类引用", index)));
+                    }
+                }
+                0x59 => {
+                    // dup
+                    println!("dup");
+                    // 复制栈顶元素
+                    if !self.stack.is_values_empty() {
+                        let value = self.stack.peek_int();
+                        self.stack.push_int(value);
+                    } else if !self.stack.is_obj_refs_empty() {
+                        let obj_ref = self.stack.peek_obj_ref();
+                        self.stack.push_obj_ref(obj_ref);
+                    } else {
+                        return Err(JvmError::IllegalStateError("dup: 栈为空".to_string()));
+                    }
+                }
+                0xb7 => {
+                    // invokespecial
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    println!("invokespecial {}", index);
+                    
+                    // 从常量池获取方法引用
+                    let cp = &method.constant_pool;
+                    if let reader::constant_pool::CpInfo::MethodRef { class_index, name_and_type_index, .. } = &cp[index - 1] {
+                        // 获取类名
+                        let class_name = if let reader::constant_pool::CpInfo::Class { name_index, .. } = &cp[(*class_index - 1) as usize] {
+                            cp.get_utf8_string(*name_index)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid class reference".to_string()));
+                        };
+                        
+                        // 获取方法名和描述符
+                        let name_and_type = if let reader::constant_pool::CpInfo::NameAndType { name_index, descriptor_index, .. } = &cp[(*name_and_type_index - 1) as usize] {
+                            let method_name = cp.get_utf8_string(*name_index);
+                            let method_desc = cp.get_utf8_string(*descriptor_index);
+                            (method_name, method_desc)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
+                        };
+                        
+                        println!("Calling special method: {}.{}", class_name, name_and_type.0);
+                        
+                        // 检查是否是构造函数调用
+                        if name_and_type.0 == "<init>" {
+                            println!("[Constructor call: {}.<init>]", class_name);
+                            // 弹出this引用（对象实例）
+                            if !self.stack.is_obj_refs_empty() {
+                                let _this_ref = self.stack.pop_obj_ref();
+                                println!("[Popped this reference for constructor]");
+                            }
+                        } else {
+                            // 其他特殊方法调用
+                            println!("[Special method call: {}.{}]", class_name, name_and_type.0);
+                            // 弹出this引用
+                            if !self.stack.is_obj_refs_empty() {
+                                let _this_ref = self.stack.pop_obj_ref();
+                            }
+                        }
+                    } else {
+                        return Err(JvmError::IllegalStateError(format!("invokespecial: 常量池索引{}不是方法引用", index)));
+                    }
+                }
+                0x57 => {
+                    if !self.stack.is_values_empty() {
+                        self.stack.pop_int();
+                    } else if !self.stack.is_obj_refs_empty() {
+                        self.stack.pop_obj_ref();
+                    }
+                }
+                0x5f => {
+                    self.stack.swap_top_two_ints();
+                }
+                0xb4 => {
+                    // getfield
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    println!("getfield {}", index);
+                    // 简化实现：弹出对象引用，推入一个假值
+                    if !self.stack.is_obj_refs_empty() {
+                        let _obj_ref = self.stack.pop_obj_ref();
+                        // 假设字段是int，推入0
+                        self.stack.push_int(0);
+                    } else {
+                        return Err(JvmError::IllegalStateError("getfield: 栈无对象引用".to_string()));
+                    }
+                }
+                0xb5 => {
+                    // putfield
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    println!("putfield {}", index);
+                    // 简化实现：弹出值和对象引用
+                    if !self.stack.is_obj_refs_empty() {
+                        let _value = self.stack.pop_int();
+                        let _obj_ref = self.stack.pop_obj_ref();
+                    } else {
+                        return Err(JvmError::IllegalStateError("putfield: 栈无对象引用".to_string()));
+                    }
+                }
+                0xb8 => {
+                    // invokestatic
+                    let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
+                    self.pc += 2;
+                    println!("invokestatic {}", index);
+                    // 简化实现：直接返回
+                    // 实际应查找方法并执行
                 }
                 _ => return Err(JvmError::IllegalStateError(format!("Unknown opcode: 0x{:x}", opcode))),
             }

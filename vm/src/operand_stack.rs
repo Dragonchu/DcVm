@@ -42,6 +42,16 @@ impl OperandStack {
         self.obj_refs.pop().expect("Stack underflow")
     }
     
+    /// 查看栈顶的整数值，但不弹出
+    pub fn peek_int(&self) -> i32 {
+        *self.values.last().expect("Stack underflow")
+    }
+    
+    /// 查看栈顶的对象引用，但不弹出
+    pub fn peek_obj_ref(&self) -> RawPtr {
+        *self.obj_refs.last().expect("Stack underflow")
+    }
+    
     /// 检查整数值栈是否为空
     pub fn is_values_empty(&self) -> bool {
         self.values.is_empty()
@@ -55,6 +65,14 @@ impl OperandStack {
     /// 检查整个操作数栈是否为空
     pub fn is_empty(&self) -> bool {
         self.values.is_empty() && self.obj_refs.is_empty()
+    }
+
+    /// 交换栈顶两个整数
+    pub fn swap_top_two_ints(&mut self) {
+        let len = self.values.len();
+        if len >= 2 {
+            self.values.swap(len - 1, len - 2);
+        }
     }
 }
 
