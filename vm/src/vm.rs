@@ -3,6 +3,7 @@ use crate::{class_loader::BootstrapClassLoader, jvm_thread::JvmThread, };
 use crate::class::Klass;
 use crate::error::JvmError;
 use crate::JvmValue;
+use crate::native_method::{NativeMethodRegistry, NativeMethod};
 use std::collections::HashMap;
 use reader::constant_pool::ConstantPool;
 
@@ -11,6 +12,8 @@ pub struct Vm {
     class_loader: BootstrapClassLoader,
     // 静态字段存储: (类名, 字段名) -> 值
     static_fields: HashMap<(String, String), JvmValue>,
+    // Native方法注册表
+    native_methods: NativeMethodRegistry,
 }
 impl Vm {
     pub fn new(paths: &str) -> Vm {
@@ -18,6 +21,7 @@ impl Vm {
             class_loader: BootstrapClassLoader::new(paths),
             heap: Heap::with_maximum_memory(1024 * 1024),
             static_fields: HashMap::new(),
+            native_methods: NativeMethodRegistry::new(),
         }
     }
     
@@ -47,6 +51,16 @@ impl Vm {
     /// 获取静态字段值
     pub fn get_static_field(&self, class_name: &str, field_name: &str) -> Option<&JvmValue> {
         self.static_fields.get(&(class_name.to_string(), field_name.to_string()))
+    }
+    
+    /// 调用native方法
+    pub fn call_native_method(&self, class_name: &str, method_name: &str, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
+        let full_name = format!("{}.{}", class_name, method_name);
+        if let Some(native_method) = self.native_methods.get(&full_name) {
+            native_method.invoke(args)
+        } else {
+            Err(JvmError::IllegalStateError(format!("Native method not found: {}", full_name)))
+        }
     }
     
     /// 创建字符串对象

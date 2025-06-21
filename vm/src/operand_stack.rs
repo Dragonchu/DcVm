@@ -41,6 +41,21 @@ impl OperandStack {
     pub fn pop_obj_ref(&mut self) -> RawPtr {
         self.obj_refs.pop().expect("Stack underflow")
     }
+    
+    /// 检查整数值栈是否为空
+    pub fn is_values_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+    
+    /// 检查对象引用栈是否为空
+    pub fn is_obj_refs_empty(&self) -> bool {
+        self.obj_refs.is_empty()
+    }
+    
+    /// 检查整个操作数栈是否为空
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty() && self.obj_refs.is_empty()
+    }
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use crate::method::Method;
 use crate::operand_stack::OperandStack;
 use crate::local_vars::LocalVars;
 use crate::JvmValue;
+use crate::heap::RawPtr;
 use reader::constant_pool::ConstantPool;
 
 pub struct JvmThread {
@@ -153,10 +154,46 @@ impl JvmThread {
                 }
                 0xb1 => return Ok(()), // return
                 0xb2 => {
-                    // invokestatic
+                    // getstatic
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("invokestatic {}", index);
+                    println!("getstatic {}", index);
+                    
+                    // 从常量池获取字段引用
+                    let cp = &method.constant_pool;
+                    if let reader::constant_pool::CpInfo::FieldRef { class_index, name_and_type_index, .. } = &cp[index - 1] {
+                        // 获取类名
+                        let class_name = if let reader::constant_pool::CpInfo::Class { name_index, .. } = &cp[(*class_index - 1) as usize] {
+                            cp.get_utf8_string(*name_index)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid class reference".to_string()));
+                        };
+                        
+                        // 获取字段名和描述符
+                        let name_and_type = if let reader::constant_pool::CpInfo::NameAndType { name_index, descriptor_index, .. } = &cp[(*name_and_type_index - 1) as usize] {
+                            let field_name = cp.get_utf8_string(*name_index);
+                            let field_desc = cp.get_utf8_string(*descriptor_index);
+                            (field_name, field_desc)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
+                        };
+                        
+                        println!("Getting static field: {}.{}", class_name, name_and_type.0);
+                        
+                        // 处理System.out字段
+                        if class_name == "java/lang/System" && name_and_type.0 == "out" {
+                            // 创建一个假的PrintStream对象引用（简化实现）
+                            let fake_ptr = RawPtr(std::ptr::null_mut());
+                            self.stack.push_obj_ref(fake_ptr);
+                            println!("[Pushed System.out object]");
+                        } else {
+                            // 其他静态字段，简化处理
+                            let fake_ptr = RawPtr(std::ptr::null_mut());
+                            self.stack.push_obj_ref(fake_ptr);
+                        }
+                    } else {
+                        return Err(JvmError::IllegalStateError(format!("getstatic: 常量池索引{}不是字段引用", index)));
+                    }
                 }
                 0xb3 => {
                     // putstatic
@@ -273,8 +310,11 @@ impl JvmThread {
                         reader::constant_pool::CpInfo::Double { high_bytes, low_bytes, .. } => {
                             let bits = ((*high_bytes as u64) << 32) | (*low_bytes as u64);
                             let value = f64::from_bits(bits);
-                            println!("ldc2_w double: {} (仅低32位入栈)", value);
-                            self.stack.push_int((bits & 0xFFFF_FFFF) as i32);
+                            println!("ldc2_w double: {} (推入两个32位值)", value);
+                            // 推入高32位
+                            self.stack.push_int((*high_bytes) as i32);
+                            // 推入低32位
+                            self.stack.push_int((*low_bytes) as i32);
                         }
                         _ => {
                             return Err(JvmError::IllegalStateError(format!("ldc2_w: 常量池索引{}不是long/double", index)));
@@ -286,6 +326,96 @@ impl JvmThread {
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
                     println!("invokevirtual {}", index);
+                    
+                    // 从常量池获取方法引用
+                    let cp = &method.constant_pool;
+                    if let reader::constant_pool::CpInfo::MethodRef { class_index, name_and_type_index, .. } = &cp[index - 1] {
+                        // 获取类名
+                        let class_name = if let reader::constant_pool::CpInfo::Class { name_index, .. } = &cp[(*class_index - 1) as usize] {
+                            cp.get_utf8_string(*name_index)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid class reference".to_string()));
+                        };
+                        
+                        // 获取方法名和描述符
+                        let name_and_type = if let reader::constant_pool::CpInfo::NameAndType { name_index, descriptor_index, .. } = &cp[(*name_and_type_index - 1) as usize] {
+                            let method_name = cp.get_utf8_string(*name_index);
+                            let method_desc = cp.get_utf8_string(*descriptor_index);
+                            (method_name, method_desc)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
+                        };
+                        
+                        println!("Calling virtual method: {}.{}", class_name, name_and_type.0);
+                        
+                        // 检查是否是PrintStream.println调用
+                        if class_name == "java/io/PrintStream" && name_and_type.0 == "println" {
+                            // 从操作数栈弹出参数
+                            let mut args = Vec::new();
+                            
+                            // 根据描述符解析参数
+                            let descriptor = &name_and_type.1;
+                            if descriptor.starts_with("(Ljava/lang/String;)V") {
+                                // println(String)
+                                // 检查是否有对象引用可以弹出
+                                if !self.stack.is_obj_refs_empty() {
+                                    let obj_ref = self.stack.pop_obj_ref();
+                                    args.push(JvmValue::ObjRef(obj_ref));
+                                }
+                            } else if descriptor.starts_with("(I)V") {
+                                // println(int)
+                                let value = self.stack.pop_int();
+                                args.push(JvmValue::Int(value as u32));
+                            } else if descriptor.starts_with("(D)V") {
+                                // println(double)
+                                // 弹出两个int值组成double
+                                let low = self.stack.pop_int();
+                                let high = self.stack.pop_int();
+                                let double_bits = ((high as u64) << 32) | (low as u64 & 0xFFFF_FFFF);
+                                args.push(JvmValue::Double(double_bits));
+                            } else if descriptor.starts_with("(Z)V") {
+                                // println(boolean)
+                                let value = self.stack.pop_int();
+                                args.push(JvmValue::Boolean(value as u8));
+                            } else if descriptor.starts_with("(C)V") {
+                                // println(char)
+                                let value = self.stack.pop_int();
+                                args.push(JvmValue::Char(value as u16));
+                            } else if descriptor.starts_with("()V") {
+                                // println() - 无参数
+                            } else {
+                                // 其他类型，简化处理
+                                // 检查是否有值可以弹出
+                                if !self.stack.is_values_empty() {
+                                    let value = self.stack.pop_int();
+                                    args.push(JvmValue::Int(value as u32));
+                                } else if !self.stack.is_obj_refs_empty() {
+                                    let obj_ref = self.stack.pop_obj_ref();
+                                    args.push(JvmValue::ObjRef(obj_ref));
+                                }
+                            }
+                            
+                            // 弹出this引用（PrintStream对象）
+                            if !self.stack.is_obj_refs_empty() {
+                                let _this_ref = self.stack.pop_obj_ref();
+                            }
+                            
+                            // 调用native方法
+                            match vm.call_native_method("java/lang/System", "out.println", args) {
+                                Ok(_) => {
+                                    println!("[Native method call successful]");
+                                }
+                                Err(e) => {
+                                    return Err(JvmError::IllegalStateError(format!("Native method call failed: {:?}", e)));
+                                }
+                            }
+                        } else {
+                            // 其他虚方法调用
+                            println!("[Virtual method call: {}.{}]", class_name, name_and_type.0);
+                        }
+                    } else {
+                        return Err(JvmError::IllegalStateError(format!("invokevirtual: 常量池索引{}不是方法引用", index)));
+                    }
                 }
                 _ => return Err(JvmError::IllegalStateError(format!("Unknown opcode: 0x{:x}", opcode))),
             }
@@ -301,8 +431,16 @@ impl JvmThread {
         _args: Vec<crate::heap::RawPtr>,
         vm: &mut crate::vm::Vm,
     ) {
+        println!("[JVM] 开始执行方法: {}.{}", method.get_name(), method.get_descriptor());
         let mut heap = crate::heap::Heap::with_maximum_memory(1024);
-        let _ = self.execute(&method, &mut heap, vm);
+        match self.execute(&method, &mut heap, vm) {
+            Ok(_) => {
+                println!("[JVM] 方法执行完成");
+            }
+            Err(e) => {
+                println!("[JVM] 方法执行失败: {:?}", e);
+            }
+        }
     }
 }
 
