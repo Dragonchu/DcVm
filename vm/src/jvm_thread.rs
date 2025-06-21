@@ -5,6 +5,7 @@ use crate::operand_stack::OperandStack;
 use crate::local_vars::LocalVars;
 use crate::JvmValue;
 use crate::heap::RawPtr;
+use crate::jvm_log;
 use reader::constant_pool::ConstantPool;
 
 pub struct JvmThread {
@@ -198,7 +199,7 @@ impl JvmThread {
                     // getstatic
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("getstatic {}", index);
+                    jvm_log!("getstatic {}", index);
                     
                     // 从常量池获取字段引用
                     let cp = &method.constant_pool;
@@ -219,14 +220,14 @@ impl JvmThread {
                             return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
                         };
                         
-                        println!("Getting static field: {}.{}", class_name, name_and_type.0);
+                        jvm_log!("Getting static field: {}.{}", class_name, name_and_type.0);
                         
                         // 处理System.out字段
                         if class_name == "java/lang/System" && name_and_type.0 == "out" {
                             // 创建一个假的PrintStream对象引用（简化实现）
                             let fake_ptr = RawPtr(std::ptr::null_mut());
                             self.stack.push_obj_ref(fake_ptr);
-                            println!("[Pushed System.out object]");
+                            jvm_log!("[Pushed System.out object]");
                         } else {
                             // 其他静态字段，简化处理
                             let fake_ptr = RawPtr(std::ptr::null_mut());
@@ -240,7 +241,7 @@ impl JvmThread {
                     // putstatic
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("putstatic {}", index);
+                    jvm_log!("putstatic {}", index);
                     
                     // 从常量池获取字段引用
                     let cp = &method.constant_pool;
@@ -266,7 +267,7 @@ impl JvmThread {
                         
                         // 使用VM的静态字段存储功能
                         vm.set_static_field(&class_name, &name_and_type.0, JvmValue::Int(value as u32));
-                        println!("Setting static field {}.{} = {}", class_name, name_and_type.0, value);
+                        jvm_log!("Setting static field {}.{} = {}", class_name, name_and_type.0, value);
                     } else {
                         return Err(JvmError::IllegalStateError(format!("putstatic: 常量池索引{}不是字段引用", index)));
                     }
@@ -287,7 +288,7 @@ impl JvmThread {
                         }
                         reader::constant_pool::CpInfo::String { string_index, .. } => {
                             let s = cp.get_utf8_string(*string_index);
-                            println!("ldc string: {}", s);
+                            jvm_log!("ldc string: {}", s);
                             // 创建字符串对象并推入栈
                             match vm.create_string_object(&s) {
                                 Ok(string_ptr) => {
@@ -320,7 +321,7 @@ impl JvmThread {
                         }
                         reader::constant_pool::CpInfo::String { string_index, .. } => {
                             let s = cp.get_utf8_string(*string_index);
-                            println!("ldc_w string: {}", s);
+                            jvm_log!("ldc_w string: {}", s);
                             // 创建字符串对象并推入栈
                             match vm.create_string_object(&s) {
                                 Ok(string_ptr) => {
@@ -345,13 +346,13 @@ impl JvmThread {
                     match &cp[index - 1] {
                         reader::constant_pool::CpInfo::Long { high_bytes, low_bytes, .. } => {
                             let value = ((*high_bytes as u64) << 32) | (*low_bytes as u64);
-                            println!("ldc2_w long: {} (仅低32位入栈)", value);
+                            jvm_log!("ldc2_w long: {} (仅低32位入栈)", value);
                             self.stack.push_int((value & 0xFFFF_FFFF) as i32);
                         }
                         reader::constant_pool::CpInfo::Double { high_bytes, low_bytes, .. } => {
                             let bits = ((*high_bytes as u64) << 32) | (*low_bytes as u64);
                             let value = f64::from_bits(bits);
-                            println!("ldc2_w double: {} (推入两个32位值)", value);
+                            jvm_log!("ldc2_w double: {} (推入两个32位值)", value);
                             // 推入高32位
                             self.stack.push_int((*high_bytes) as i32);
                             // 推入低32位
@@ -366,7 +367,7 @@ impl JvmThread {
                     // invokevirtual
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("invokevirtual {}", index);
+                    jvm_log!("invokevirtual {}", index);
                     
                     // 从常量池获取方法引用
                     let cp = &method.constant_pool;
@@ -387,7 +388,7 @@ impl JvmThread {
                             return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
                         };
                         
-                        println!("Calling virtual method: {}.{}", class_name, name_and_type.0);
+                        jvm_log!("Calling virtual method: {}.{}", class_name, name_and_type.0);
                         
                         // 检查是否是PrintStream.println调用
                         if class_name == "java/io/PrintStream" && name_and_type.0 == "println" {
@@ -444,7 +445,7 @@ impl JvmThread {
                             // 调用native方法
                             match vm.call_native_method("java/lang/System", "out.println", args) {
                                 Ok(_) => {
-                                    println!("[Native method call successful]");
+                                    jvm_log!("[Native method call successful]");
                                 }
                                 Err(e) => {
                                     return Err(JvmError::IllegalStateError(format!("Native method call failed: {:?}", e)));
@@ -452,7 +453,7 @@ impl JvmThread {
                             }
                         } else {
                             // 其他虚方法调用
-                            println!("[Virtual method call: {}.{}]", class_name, name_and_type.0);
+                            jvm_log!("[Virtual method call: {}.{}]", class_name, name_and_type.0);
                         }
                     } else {
                         return Err(JvmError::IllegalStateError(format!("invokevirtual: 常量池索引{}不是方法引用", index)));
@@ -462,13 +463,13 @@ impl JvmThread {
                     // new
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("new {}", index);
+                    jvm_log!("new {}", index);
                     
                     // 从常量池获取类引用
                     let cp = &method.constant_pool;
                     if let reader::constant_pool::CpInfo::Class { name_index, .. } = &cp[index - 1] {
                         let class_name = cp.get_utf8_string(*name_index);
-                        println!("Creating new object of class: {}", class_name);
+                        jvm_log!("Creating new object of class: {}", class_name);
                         
                         // 1. 加载类（如果还没有加载）
                         let klass = match vm.load(&class_name) {
@@ -498,14 +499,14 @@ impl JvmThread {
                         
                         // 4. 将对象引用推入操作数栈
                         self.stack.push_obj_ref(obj_ptr);
-                        println!("[Created object: {:?}]", obj_ptr);
+                        jvm_log!("[Created object: {:?}]", obj_ptr);
                     } else {
                         return Err(JvmError::IllegalStateError(format!("new: 常量池索引{}不是类引用", index)));
                     }
                 }
                 0x59 => {
                     // dup
-                    println!("dup");
+                    jvm_log!("dup");
                     // 复制栈顶元素
                     if !self.stack.is_values_empty() {
                         let value = self.stack.peek_int();
@@ -521,7 +522,7 @@ impl JvmThread {
                     // invokespecial
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("invokespecial {}", index);
+                    jvm_log!("invokespecial {}", index);
                     
                     // 从常量池获取方法引用
                     let cp = &method.constant_pool;
@@ -542,19 +543,19 @@ impl JvmThread {
                             return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
                         };
                         
-                        println!("Calling special method: {}.{}", class_name, name_and_type.0);
+                        jvm_log!("Calling special method: {}.{}", class_name, name_and_type.0);
                         
                         // 检查是否是构造函数调用
                         if name_and_type.0 == "<init>" {
-                            println!("[Constructor call: {}.<init>]", class_name);
+                            jvm_log!("[Constructor call: {}.<init>]", class_name);
                             // 弹出this引用（对象实例）
                             if !self.stack.is_obj_refs_empty() {
                                 let _this_ref = self.stack.pop_obj_ref();
-                                println!("[Popped this reference for constructor]");
+                                jvm_log!("[Popped this reference for constructor]");
                             }
                         } else {
                             // 其他特殊方法调用
-                            println!("[Special method call: {}.{}]", class_name, name_and_type.0);
+                            jvm_log!("[Special method call: {}.{}]", class_name, name_and_type.0);
                             // 弹出this引用
                             if !self.stack.is_obj_refs_empty() {
                                 let _this_ref = self.stack.pop_obj_ref();
@@ -578,7 +579,7 @@ impl JvmThread {
                     // getfield
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("getfield {}", index);
+                    jvm_log!("getfield {}", index);
                     // 简化实现：弹出对象引用，推入一个假值
                     if !self.stack.is_obj_refs_empty() {
                         let _obj_ref = self.stack.pop_obj_ref();
@@ -592,7 +593,7 @@ impl JvmThread {
                     // putfield
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("putfield {}", index);
+                    jvm_log!("putfield {}", index);
                     // 简化实现：弹出值和对象引用
                     if !self.stack.is_obj_refs_empty() {
                         let _value = self.stack.pop_int();
@@ -605,7 +606,7 @@ impl JvmThread {
                     // invokestatic
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
-                    println!("invokestatic {}", index);
+                    jvm_log!("invokestatic {}", index);
                     // 简化实现：直接返回
                     // 实际应查找方法并执行
                 }
@@ -623,14 +624,14 @@ impl JvmThread {
         _args: Vec<crate::heap::RawPtr>,
         vm: &mut crate::vm::Vm,
     ) {
-        println!("[JVM] 开始执行方法: {}.{}", method.get_name(), method.get_descriptor());
+        jvm_log!("[JVM] 开始执行方法: {}.{}", method.get_name(), method.get_descriptor());
         let mut heap = crate::heap::Heap::with_maximum_memory(1024);
         match self.execute(&method, &mut heap, vm) {
             Ok(_) => {
-                println!("[JVM] 方法执行完成");
+                jvm_log!("[JVM] 方法执行完成");
             }
             Err(e) => {
-                println!("[JVM] 方法执行失败: {:?}", e);
+                jvm_log!("[JVM] 方法执行失败: {:?}", e);
             }
         }
     }

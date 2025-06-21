@@ -3,6 +3,13 @@ use std::fmt;
 
 use crate::types::{U1, U2, U4};
 
+// 简单的日志控制
+fn log(message: &str) {
+    if crate::class_path_manager::is_log_enabled() {
+        println!("{}", message);
+    }
+}
+
 impl CpInfo {
     pub fn to_utf8_string(&self) -> String {
         if let CpInfo::Utf8 {
@@ -193,7 +200,7 @@ impl TryFrom<u8> for ConstantInfoTag {
             16 => Ok(ConstantInfoTag::ConstantMethodType),
             18 => Ok(ConstantInfoTag::ConstantInvokeDynamic),
             _ => {
-                println!("Unknown tag: {}", value);
+                log(&format!("Unknown tag: {}", value));
                 Err(())
             }
         }

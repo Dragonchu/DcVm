@@ -2,6 +2,8 @@ use vm::heap::RawPtr;
 use vm::jvm_thread::JvmThread;
 use vm::vm::Vm;
 use vm::error::JvmError;
+use vm::logger::Logger;
+use vm::jvm_log;
 use std::env;
 
 fn main() -> Result<(), JvmError> {
@@ -9,20 +11,37 @@ fn main() -> Result<(), JvmError> {
     let args: Vec<String> = env::args().collect();
     
     // 检查参数
-    if args.len() < 2 || args.len() > 3 {
-        println!("用法: {} <测试文件路径> [classpath]", args[0]);
+    if args.len() < 2 {
+        println!("用法: {} <测试文件路径> [classpath] [--quiet]", args[0]);
         println!("示例: {} test/TestProgram", args[0]);
         println!("示例: {} test/TestProgram test:/path/to/rt.jar", args[0]);
+        println!("示例: {} test/TestProgram test:/path/to/rt.jar --quiet", args[0]);
         return Err(JvmError::IllegalStateError("参数错误".to_string()));
     }
     
     let test_path = &args[1];
-    let classpath = if args.len() == 3 {
-        &args[2]
+    let mut classpath = "test";
+    let mut quiet_mode = false;
+    
+    // 解析参数
+    for i in 2..args.len() {
+        if args[i] == "--quiet" {
+            quiet_mode = true;
+        } else if !args[i].starts_with("--") {
+            // 非选项参数作为classpath
+            classpath = &args[i];
+        }
+    }
+    
+    // 设置日志模式
+    if quiet_mode {
+        Logger::disable();
+        // 同时禁用reader模块的日志
+        reader::class_path_manager::set_log_enabled(false);
     } else {
-        // 默认classpath
-        "test"
-    };
+        Logger::enable();
+        reader::class_path_manager::set_log_enabled(true);
+    }
     
     let class_name = if test_path.ends_with(".class") {
         // 如果输入的是.class文件，提取类名
@@ -60,8 +79,8 @@ fn main() -> Result<(), JvmError> {
         .unwrap()
         .to_string();
     
-    println!("[JVM] 加载类: {}", class_name);
-    println!("[JVM] 类路径: {}", classpath);
+    jvm_log!("[JVM] 加载类: {}", class_name);
+    jvm_log!("[JVM] 类路径: {}", classpath);
     
     // 初始化JVM
     let mut vm = Vm::new(classpath);

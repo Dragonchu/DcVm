@@ -5,6 +5,25 @@ use std::{
 
 use crate::{class_file::ClassFile, class_file_parse::ClassFileParser};
 
+// 简单的日志控制
+static mut LOG_ENABLED: bool = true;
+
+pub fn set_log_enabled(enabled: bool) {
+    unsafe {
+        LOG_ENABLED = enabled;
+    }
+}
+
+pub fn is_log_enabled() -> bool {
+    unsafe { LOG_ENABLED }
+}
+
+fn log(message: &str) {
+    if is_log_enabled() {
+        println!("{}", message);
+    }
+}
+
 enum ClassPathEntry {
     DIR { path: String },
     JAR { path: String },
@@ -32,7 +51,7 @@ impl ClassPathManager {
 
     pub fn add_class_path(&mut self, path: &str) {
         let abs_path = std::fs::canonicalize(path).expect("Invalid class path");
-        println!("[ClassPathManager] 添加类路径: {}", abs_path.display());
+        log(&format!("[ClassPathManager] 添加类路径: {}", abs_path.display()));
         let md = fs::metadata(&abs_path).expect("Invalid class path");
         let source = if md.is_dir() {
             ClassPathEntry::DIR {
@@ -62,15 +81,15 @@ impl ClassPathManager {
             .replace(".", std::path::MAIN_SEPARATOR_STR)
             + ".class";
         
-        println!("[ClassPathManager] 搜索类: {} (文件名: {})", class_name, file_name);
-        println!("[ClassPathManager] 类路径条目数量: {}", self.run_time_class_path.len());
+        log(&format!("[ClassPathManager] 搜索类: {} (文件名: {})", class_name, file_name));
+        log(&format!("[ClassPathManager] 类路径条目数量: {}", self.run_time_class_path.len()));
         
         for (i, entry) in self.run_time_class_path.iter().enumerate() {
             match entry {
                 ClassPathEntry::DIR { path } => {
-                    println!("[ClassPathManager] 条目 {}: 目录 {}", i, path);
+                    log(&format!("[ClassPathManager] 条目 {}: 目录 {}", i, path));
                     let fname = std::path::Path::new(&path).join(&file_name);
-                    println!("[ClassPathManager] 查找类文件: {}", fname.display());
+                    log(&format!("[ClassPathManager] 查找类文件: {}", fname.display()));
                     match fs::File::open(&fname) {
                         Ok(file) => {
                             let reader = BufReader::new(file);
@@ -81,9 +100,9 @@ impl ClassPathManager {
                     }
                 }
                 ClassPathEntry::JAR { path } => {
-                    println!("[ClassPathManager] 条目 {}: JAR {}", i, path);
+                    log(&format!("[ClassPathManager] 条目 {}: JAR {}", i, path));
                     let fname = std::path::Path::new(&path);
-                    println!("[ClassPathManager] 查找JAR文件: {}，类: {}", fname.display(), file_name);
+                    log(&format!("[ClassPathManager] 查找JAR文件: {}，类: {}", fname.display(), file_name));
                     if let Ok(file) = fs::File::open(fname) {
                         let reader = BufReader::new(file);
                         if let Ok(mut archive) = zip::ZipArchive::new(reader) {
@@ -92,18 +111,18 @@ impl ClassPathManager {
                                     return Ok(ClassFileParser::zip(class_file).parse());
                                 }
                             } else {
-                                println!("[ClassPathManager] JAR中未找到类: {}", file_name);
+                                log(&format!("[ClassPathManager] JAR中未找到类: {}", file_name));
                             }
                         } else {
-                            println!("[ClassPathManager] 无法解析JAR文件: {}", path);
+                            log(&format!("[ClassPathManager] 无法解析JAR文件: {}", path));
                         }
                     } else {
-                        println!("[ClassPathManager] 无法打开JAR文件: {}", path);
+                        log(&format!("[ClassPathManager] 无法打开JAR文件: {}", path));
                     }
                 }
             }
         }
-        println!("[ClassPathManager] 在所有类路径中未找到类: {}", class_name);
+        log(&format!("[ClassPathManager] 在所有类路径中未找到类: {}", class_name));
         Err(ClassNotFoundError)
     }
 }

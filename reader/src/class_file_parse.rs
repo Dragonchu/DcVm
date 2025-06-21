@@ -16,6 +16,13 @@ use super::{
     types::{U1, U2, U4},
 };
 
+// 简单的日志控制
+fn log(message: &str) {
+    if crate::class_path_manager::is_log_enabled() {
+        println!("{}", message);
+    }
+}
+
 enum ClassFileStream<'a> {
     File(BufReader<File>),
     Zip(ZipFile<'a>),
@@ -149,9 +156,9 @@ impl<'a> ClassFileParser<'a> {
             let tag = match self.class_file_stream.read_u1().try_into() {
                 Ok(tag) => tag,
                 Err(_) => {
-                    println!("parsed constant_pool count: \n{:?}", constant_pool.len());
+                    log(&format!("parsed constant_pool count: \n{:?}", constant_pool.len()));
                     for (i, cp) in constant_pool.iter().enumerate() {
-                        println!("{}: {:?}", i+1, cp);
+                        log(&format!("{}: {:?}", i+1, cp));
                     }
                     panic!("Invalid tag")
                 },

@@ -42,11 +42,13 @@ show_help() {
     echo "  -f, --file <文件名>     指定要运行的Java文件（不含.java扩展名）"
     echo "  -l, --list             列出所有可用的测试文件"
     echo "  -c, --compile          强制重新编译Java文件"
+    echo "  -q, --quiet            静默模式，不输出JVM调试日志"
     echo "  -h, --help             显示此帮助信息"
     echo ""
     echo "示例:"
     echo "  $0 -f TestProgram      运行TestProgram.java"
     echo "  $0 -f TestProgram -c   强制重新编译并运行TestProgram.java"
+    echo "  $0 -f TestProgram -q   静默模式运行TestProgram.java"
     echo "  $0 -l                  列出所有测试文件"
 }
 
@@ -159,6 +161,7 @@ detect_rt_jar_path() {
 # 运行JVM程序
 run_jvm() {
     local class_name="$1"
+    local quiet_mode="$2"
     
     print_info "启动JVM执行: $class_name"
     
@@ -175,8 +178,17 @@ run_jvm() {
     # 切换到vm目录
     cd vm
     
-    # 运行JVM程序，传递类文件路径和classpath
-    if cargo run --bin vm -- "../test/$class_name.class" "$classpath"; then
+    # 构建JVM命令参数
+    local jvm_args="../test/$class_name.class"
+    jvm_args="$jvm_args $classpath"
+    
+    # 如果启用静默模式，添加--quiet参数
+    if [ "$quiet_mode" = true ]; then
+        jvm_args="$jvm_args --quiet"
+    fi
+    
+    # 运行JVM程序
+    if cargo run --bin vm -- $jvm_args; then
         print_success "JVM执行完成"
     else
         print_error "JVM执行失败"
@@ -189,6 +201,7 @@ main() {
     local selected_file=""
     local force_compile=false
     local list_files=false
+    local quiet_mode=false
     
     # 解析命令行参数
     while [[ $# -gt 0 ]]; do
@@ -203,6 +216,10 @@ main() {
                 ;;
             -l|--list)
                 list_files=true
+                shift
+                ;;
+            -q|--quiet)
+                quiet_mode=true
                 shift
                 ;;
             -h|--help)
@@ -273,7 +290,7 @@ main() {
     fi
     
     # 运行JVM程序
-    if ! run_jvm "$selected_file"; then
+    if ! run_jvm "$selected_file" "$quiet_mode"; then
         exit 1
     fi
     

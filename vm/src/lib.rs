@@ -12,6 +12,7 @@ pub mod field;
 pub mod heap;
 pub mod instructions;
 pub mod jvm_thread;
+pub mod logger;
 pub mod method;
 pub mod native_method;
 pub mod pc_register;
