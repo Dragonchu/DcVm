@@ -1,4 +1,5 @@
 use reader::types::{U1, U2, U4};
+use crate::method::ArrayType;
 
 #[derive(Debug)]
 pub enum Instruction {
@@ -190,7 +191,7 @@ pub enum Instruction {
     Monitorexit,
     Multianewarray(U2, U1),
     New(U2),
-    Newarray(U1),
+    Newarray(ArrayType),
     Nop,
     Pop,
     Pop2,

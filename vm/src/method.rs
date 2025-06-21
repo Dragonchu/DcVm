@@ -6,6 +6,44 @@ use reader::{
 };
 
 use crate::instructions::Instruction;
+
+#[derive(Debug, Clone)]
+pub enum ArrayType {
+    Boolean, // T_BOOLEAN = 4
+    Char,    // T_CHAR = 5
+    Float,   // T_FLOAT = 6
+    Double,  // T_DOUBLE = 7
+    Byte,    // T_BYTE = 8
+    Short,   // T_SHORT = 9
+    Int,     // T_INT = 10
+    Long,    // T_LONG = 11
+}
+
+impl ArrayType {
+    pub fn from_u1(value: U1) -> Option<Self> {
+        match value {
+            4 => Some(ArrayType::Boolean),
+            5 => Some(ArrayType::Char),
+            6 => Some(ArrayType::Float),
+            7 => Some(ArrayType::Double),
+            8 => Some(ArrayType::Byte),
+            9 => Some(ArrayType::Short),
+            10 => Some(ArrayType::Int),
+            11 => Some(ArrayType::Long),
+            _ => None,
+        }
+    }
+    
+    pub fn get_element_size(&self) -> usize {
+        match self {
+            ArrayType::Boolean | ArrayType::Byte => 1,
+            ArrayType::Char | ArrayType::Short => 2,
+            ArrayType::Int | ArrayType::Float => 4,
+            ArrayType::Long | ArrayType::Double => 8,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct ExceptionEntry {
     start_pc: U2,
@@ -276,7 +314,13 @@ impl<'a> Iterator for ByteCodesInterator<'a> {
             0xc3 => Some(Instruction::Monitorexit),
             0xc5 => Some(Instruction::Multianewarray(self.read_u2(), self.read_u1())),
             0xbb => Some(Instruction::New(self.read_u2())),
-            0xbc => Some(Instruction::Newarray(self.read_u1())), //TODO use enum ArrayType
+            0xbc => {
+                let array_type_value = self.read_u1();
+                match ArrayType::from_u1(array_type_value) {
+                    Some(array_type) => Some(Instruction::Newarray(array_type)),
+                    None => None, // 无效的数组类型
+                }
+            }, //TODO use enum ArrayType
             0x0 => Some(Instruction::Nop),
             0x57 => Some(Instruction::Pop),
             0x58 => Some(Instruction::Pop2),

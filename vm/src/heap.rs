@@ -48,7 +48,21 @@ impl RawPtr {
     }
     
     pub fn get_field_value(&self, klass: &InstanceKlass, index: usize) -> JvmValue {
-       todo!() 
+        // 获取字段信息
+        let fields = klass.get_static_fields();
+        if index >= fields.len() {
+            return JvmValue::Null; // 字段索引越界
+        }
+        
+        let field = &fields[index];
+        let field_values = klass.get_static_field_values();
+        
+        // 返回字段值，如果索引越界则返回默认值
+        if index < field_values.len() {
+            field_values[index]
+        } else {
+            field.get_default()
+        }
     }
 }
 

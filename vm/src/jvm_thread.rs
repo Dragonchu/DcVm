@@ -162,7 +162,37 @@ impl JvmThread {
                     let index = ((code[self.pc] as u16) << 8 | code[self.pc + 1] as u16) as usize;
                     self.pc += 2;
                     println!("putstatic {}", index);
-                    // TODO: 实现静态字段设置逻辑
+                    
+                    // 从常量池获取字段引用
+                    let cp = &method.constant_pool;
+                    if let reader::constant_pool::CpInfo::FieldRef { class_index, name_and_type_index, .. } = &cp[index - 1] {
+                        // 获取类名
+                        let class_name = if let reader::constant_pool::CpInfo::Class { name_index, .. } = &cp[(*class_index - 1) as usize] {
+                            cp.get_utf8_string(*name_index)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid class reference".to_string()));
+                        };
+                        
+                        // 获取字段名和描述符
+                        let name_and_type = if let reader::constant_pool::CpInfo::NameAndType { name_index, descriptor_index, .. } = &cp[(*name_and_type_index - 1) as usize] {
+                            let field_name = cp.get_utf8_string(*name_index);
+                            let field_desc = cp.get_utf8_string(*descriptor_index);
+                            (field_name, field_desc)
+                        } else {
+                            return Err(JvmError::IllegalStateError("Invalid name and type reference".to_string()));
+                        };
+                        
+                        // 从操作数栈弹出值
+                        let value = self.stack.pop_int();
+                        
+                        // TODO: 需要在VM中维护静态字段存储
+                        // 这里暂时打印信息，实际实现需要：
+                        // 1. 在VM中维护静态字段表
+                        // 2. 根据类名和字段名存储值
+                        println!("Setting static field {}.{} = {}", class_name, name_and_type.0, value);
+                    } else {
+                        return Err(JvmError::IllegalStateError(format!("putstatic: 常量池索引{}不是字段引用", index)));
+                    }
                 }
                 0x12 => {
                     // ldc
@@ -181,7 +211,13 @@ impl JvmThread {
                         reader::constant_pool::CpInfo::String { string_index, .. } => {
                             let s = cp.get_utf8_string(*string_index);
                             println!("ldc string: {}", s);
-                            // TODO: 支持字符串对象入栈
+                            // 创建字符串对象并推入栈
+                            // TODO: 实际实现需要：
+                            // 1. 在堆上分配字符串对象
+                            // 2. 设置字符串的字符数组
+                            // 3. 将对象引用推入栈
+                            // 这里暂时将字符串长度作为int推入栈作为占位符
+                            self.stack.push_int(s.len() as i32);
                         }
                         _ => {
                             return Err(JvmError::IllegalStateError(format!("ldc: 常量池索引{}类型不支持", index)));
@@ -205,7 +241,13 @@ impl JvmThread {
                         reader::constant_pool::CpInfo::String { string_index, .. } => {
                             let s = cp.get_utf8_string(*string_index);
                             println!("ldc_w string: {}", s);
-                            // TODO: 支持字符串对象入栈
+                            // 创建字符串对象并推入栈
+                            // TODO: 实际实现需要：
+                            // 1. 在堆上分配字符串对象
+                            // 2. 设置字符串的字符数组
+                            // 3. 将对象引用推入栈
+                            // 这里暂时将字符串长度作为int推入栈作为占位符
+                            self.stack.push_int(s.len() as i32);
                         }
                         _ => {
                             return Err(JvmError::IllegalStateError(format!("ldc_w: 常量池索引{}类型不支持", index)));
