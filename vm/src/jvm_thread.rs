@@ -470,16 +470,35 @@ impl JvmThread {
                         let class_name = cp.get_utf8_string(*name_index);
                         println!("Creating new object of class: {}", class_name);
                         
-                        // 简化实现：创建一个假的对象引用
-                        // 在实际实现中，这里应该：
                         // 1. 加载类（如果还没有加载）
-                        // 2. 在堆上分配内存
-                        // 3. 初始化对象
-                        // 4. 调用构造函数
+                        let klass = match vm.load(&class_name) {
+                            Ok(k) => k,
+                            Err(e) => {
+                                return Err(JvmError::ClassNotFoundError(format!("Failed to load class {}: {:?}", class_name, e)));
+                            }
+                        };
                         
-                        let fake_ptr = RawPtr(std::ptr::null_mut());
-                        self.stack.push_obj_ref(fake_ptr);
-                        println!("[Created object: {:?}]", fake_ptr);
+                        // 2. 在堆上分配内存
+                        let obj_ptr = match vm.alloc_object(&klass) {
+                            Ok(ptr) => ptr,
+                            Err(e) => {
+                                return Err(JvmError::IllegalStateError(format!("Failed to allocate object: {:?}", e)));
+                            }
+                        };
+                        
+                        // 3. 初始化对象字段为默认值
+                        if let crate::class::Klass::Instance(instance_klass) = &klass {
+                            let fields = instance_klass.get_instance_fields();
+                            for (i, field) in fields.iter().enumerate() {
+                                let default_value = field.get_default();
+                                let field_offset = i * 8; // 8字节对齐
+                                vm.heap.put_field(obj_ptr, field_offset, default_value);
+                            }
+                        }
+                        
+                        // 4. 将对象引用推入操作数栈
+                        self.stack.push_obj_ref(obj_ptr);
+                        println!("[Created object: {:?}]", obj_ptr);
                     } else {
                         return Err(JvmError::IllegalStateError(format!("new: 常量池索引{}不是类引用", index)));
                     }

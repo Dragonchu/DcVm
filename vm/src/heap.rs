@@ -228,9 +228,16 @@ impl Heap {
         let header_size = std::mem::size_of::<Header>();
         let addr = unsafe { obj.0.add(header_size + field_offset) };
         match value {
+            JvmValue::Boolean(v) => unsafe { *(addr as *mut u8) = v },
+            JvmValue::Byte(v) => unsafe { *(addr as *mut u8) = v },
+            JvmValue::Short(v) => unsafe { *(addr as *mut u16) = v },
+            JvmValue::Char(v) => unsafe { *(addr as *mut u16) = v },
             JvmValue::Int(v) => unsafe { *(addr as *mut i32) = v as i32 },
+            JvmValue::Long(v) => unsafe { *(addr as *mut i64) = v as i64 },
+            JvmValue::Float(v) => unsafe { *(addr as *mut u64) = v }, // 直接写入位表示
+            JvmValue::Double(v) => unsafe { *(addr as *mut u64) = v },
             JvmValue::ObjRef(ptr) => unsafe { *(addr as *mut RawPtr) = ptr },
-            _ => unimplemented!("暂不支持该类型"),
+            JvmValue::Null => unsafe { *(addr as *mut usize) = 0 },
         }
     }
 
