@@ -3,6 +3,7 @@ use crate::heap::Heap;
 use crate::method::Method;
 use crate::operand_stack::OperandStack;
 use crate::local_vars::LocalVars;
+use crate::JvmValue;
 use reader::constant_pool::ConstantPool;
 
 pub struct JvmThread {
@@ -20,7 +21,7 @@ impl JvmThread {
         }
     }
 
-    pub fn execute(&mut self, method: &Method, heap: &mut Heap) -> Result<(), JvmError> {
+    pub fn execute(&mut self, method: &Method, heap: &mut Heap, vm: &mut crate::vm::Vm) -> Result<(), JvmError> {
         let code = method.get_code();
         while self.pc < code.len() {
             let opcode = code[self.pc];
@@ -185,10 +186,8 @@ impl JvmThread {
                         // 从操作数栈弹出值
                         let value = self.stack.pop_int();
                         
-                        // TODO: 需要在VM中维护静态字段存储
-                        // 这里暂时打印信息，实际实现需要：
-                        // 1. 在VM中维护静态字段表
-                        // 2. 根据类名和字段名存储值
+                        // 使用VM的静态字段存储功能
+                        vm.set_static_field(&class_name, &name_and_type.0, JvmValue::Int(value as u32));
                         println!("Setting static field {}.{} = {}", class_name, name_and_type.0, value);
                     } else {
                         return Err(JvmError::IllegalStateError(format!("putstatic: 常量池索引{}不是字段引用", index)));
@@ -212,12 +211,15 @@ impl JvmThread {
                             let s = cp.get_utf8_string(*string_index);
                             println!("ldc string: {}", s);
                             // 创建字符串对象并推入栈
-                            // TODO: 实际实现需要：
-                            // 1. 在堆上分配字符串对象
-                            // 2. 设置字符串的字符数组
-                            // 3. 将对象引用推入栈
-                            // 这里暂时将字符串长度作为int推入栈作为占位符
-                            self.stack.push_int(s.len() as i32);
+                            match vm.create_string_object(&s) {
+                                Ok(string_ptr) => {
+                                    // 将对象引用推入栈
+                                    self.stack.push_obj_ref(string_ptr);
+                                }
+                                Err(e) => {
+                                    return Err(JvmError::IllegalStateError(format!("Failed to create string object: {:?}", e)));
+                                }
+                            }
                         }
                         _ => {
                             return Err(JvmError::IllegalStateError(format!("ldc: 常量池索引{}类型不支持", index)));
@@ -242,12 +244,15 @@ impl JvmThread {
                             let s = cp.get_utf8_string(*string_index);
                             println!("ldc_w string: {}", s);
                             // 创建字符串对象并推入栈
-                            // TODO: 实际实现需要：
-                            // 1. 在堆上分配字符串对象
-                            // 2. 设置字符串的字符数组
-                            // 3. 将对象引用推入栈
-                            // 这里暂时将字符串长度作为int推入栈作为占位符
-                            self.stack.push_int(s.len() as i32);
+                            match vm.create_string_object(&s) {
+                                Ok(string_ptr) => {
+                                    // 将对象引用推入栈
+                                    self.stack.push_obj_ref(string_ptr);
+                                }
+                                Err(e) => {
+                                    return Err(JvmError::IllegalStateError(format!("Failed to create string object: {:?}", e)));
+                                }
+                            }
                         }
                         _ => {
                             return Err(JvmError::IllegalStateError(format!("ldc_w: 常量池索引{}类型不支持", index)));
@@ -297,7 +302,7 @@ impl JvmThread {
         vm: &mut crate::vm::Vm,
     ) {
         let mut heap = crate::heap::Heap::with_maximum_memory(1024);
-        let _ = self.execute(&method, &mut heap);
+        let _ = self.execute(&method, &mut heap, vm);
     }
 }
 
@@ -319,13 +324,14 @@ mod tests {
     #[test]
     fn test_iconst_instructions() {
         let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
         let mut thread = JvmThread::new(10, 10);
         
         // 测试 iconst_0 到 iconst_5
         let code = vec![0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
         let method = create_test_method(code, 10, 10);
         
-        thread.execute(&method, &mut heap).unwrap();
+        thread.execute(&method, &mut heap, &mut vm).unwrap();
         assert_eq!(thread.stack.pop_int(), 5);
         assert_eq!(thread.stack.pop_int(), 4);
         assert_eq!(thread.stack.pop_int(), 3);
@@ -337,18 +343,20 @@ mod tests {
     #[test]
     fn test_bipush() {
         let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
         let mut thread = JvmThread::new(10, 10);
         
         let code = vec![0x10, 42]; // bipush 42
         let method = create_test_method(code, 10, 10);
         
-        thread.execute(&method, &mut heap).unwrap();
+        thread.execute(&method, &mut heap, &mut vm).unwrap();
         assert_eq!(thread.stack.pop_int(), 42);
     }
 
     #[test]
     fn test_arithmetic_instructions() {
         let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
         let mut thread = JvmThread::new(10, 10);
         
         // 测试加法、减法、乘法
@@ -363,13 +371,14 @@ mod tests {
         ];
         let method = create_test_method(code, 10, 10);
         
-        thread.execute(&method, &mut heap).unwrap();
+        thread.execute(&method, &mut heap, &mut vm).unwrap();
         assert_eq!(thread.stack.pop_int(), 24); // ((10 + 5) - 3) * 2
     }
 
     #[test]
     fn test_division_by_zero() {
         let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
         let mut thread = JvmThread::new(10, 10);
         
         let code = vec![
@@ -379,7 +388,7 @@ mod tests {
         ];
         let method = create_test_method(code, 10, 10);
         
-        match thread.execute(&method, &mut heap) {
+        match thread.execute(&method, &mut heap, &mut vm) {
             Err(JvmError::ArithmeticError(_)) => (),
             _ => panic!("Expected ArithmeticError"),
         }
@@ -388,6 +397,7 @@ mod tests {
     #[test]
     fn test_local_variables() {
         let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
         let mut thread = JvmThread::new(10, 10);
         
         let code = vec![
@@ -400,7 +410,7 @@ mod tests {
         ];
         let method = create_test_method(code, 10, 10);
         
-        thread.execute(&method, &mut heap).unwrap();
+        thread.execute(&method, &mut heap, &mut vm).unwrap();
         assert_eq!(thread.local_vars.get_int(0), 42);
         assert_eq!(thread.local_vars.get_int(1), 43);
     }
@@ -408,6 +418,7 @@ mod tests {
     #[test]
     fn test_conditional_jump() {
         let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
         let mut thread = JvmThread::new(10, 10);
         
         let code = vec![
@@ -418,7 +429,27 @@ mod tests {
         ];
         let method = create_test_method(code, 10, 10);
         
-        thread.execute(&method, &mut heap).unwrap();
+        thread.execute(&method, &mut heap, &mut vm).unwrap();
         assert_eq!(thread.stack.pop_int(), 2);
+    }
+
+    #[test]
+    fn test_static_field_storage() {
+        let mut heap = Heap::with_maximum_memory(1024);
+        let mut vm = crate::vm::Vm::new("resources/test");
+        let mut thread = JvmThread::new(10, 10);
+        
+        // 测试静态字段存储
+        // 这里我们模拟一个简单的静态字段设置
+        vm.set_static_field("TestClass", "staticField", JvmValue::Int(42));
+        
+        // 验证静态字段值
+        let field_value = vm.get_static_field("TestClass", "staticField");
+        assert!(field_value.is_some());
+        if let Some(JvmValue::Int(value)) = field_value {
+            assert_eq!(*value, 42);
+        } else {
+            panic!("Expected Int value");
+        }
     }
 }

@@ -126,6 +126,10 @@ impl InstanceKlass {
     pub fn get_static_field_values(&self) -> &Vec<JvmValue> {
         &self.s_field_val
     }
+
+    pub fn get_instance_fields(&self) -> &Vec<Field> {
+        &self.i_fields
+    }
 }
 
 #[derive(Debug, Clone)]

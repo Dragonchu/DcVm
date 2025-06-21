@@ -110,17 +110,73 @@ compile_java_file() {
     fi
 }
 
+# 检测JDK rt.jar路径
+detect_rt_jar_path() {
+    # 方法1: 检查JAVA_HOME环境变量
+    if [ -n "$JAVA_HOME" ] && [ -f "$JAVA_HOME/jre/lib/rt.jar" ]; then
+        rt_jar_path="$JAVA_HOME/jre/lib/rt.jar"
+        print_info "检测到rt.jar: $rt_jar_path"
+        return 0
+    fi
+    
+    # 方法2: 检查常见的JDK安装路径
+    local common_paths=(
+        "/Library/Java/JavaVirtualMachines/jdk1.8.0_*/Contents/Home/jre/lib/rt.jar"
+        "/System/Library/Java/JavaVirtualMachines/1.8.0.jdk/Contents/Home/jre/lib/rt.jar"
+        "/usr/lib/jvm/java-8-openjdk*/jre/lib/rt.jar"
+        "/usr/lib/jvm/java-8-oracle/jre/lib/rt.jar"
+        "/opt/java/jdk1.8.0_*/jre/lib/rt.jar"
+    )
+    
+    for pattern in "${common_paths[@]}"; do
+        for path in $pattern; do
+            if [ -f "$path" ]; then
+                rt_jar_path="$path"
+                print_info "检测到rt.jar: $rt_jar_path"
+                return 0
+            fi
+        done
+    done
+    
+    # 方法3: 使用java命令查找
+    if command -v java &> /dev/null; then
+        local java_path=$(which java)
+        if [[ "$java_path" == *"/bin/java" ]]; then
+            local jdk_home=$(dirname "$(dirname "$java_path")")
+            if [ -f "$jdk_home/jre/lib/rt.jar" ]; then
+                rt_jar_path="$jdk_home/jre/lib/rt.jar"
+                print_info "检测到rt.jar: $rt_jar_path"
+                return 0
+            fi
+        fi
+    fi
+    
+    print_error "未找到rt.jar，请确保已安装Java 8 JDK"
+    print_error "请设置JAVA_HOME环境变量或确保JDK正确安装"
+    return 1
+}
+
 # 运行JVM程序
 run_jvm() {
     local class_name="$1"
     
     print_info "启动JVM执行: $class_name"
     
+    # 检测rt.jar路径
+    if ! detect_rt_jar_path; then
+        return 1
+    fi
+    
+    # 构建classpath: test目录 + rt.jar
+    local test_abs_path="$(pwd)/test"
+    local classpath="$test_abs_path:$rt_jar_path"
+    print_info "使用classpath: $classpath"
+    
     # 切换到vm目录
     cd vm
     
-    # 运行JVM程序，传递类文件路径
-    if cargo run --bin vm "../test/$class_name.class"; then
+    # 运行JVM程序，传递类文件路径和classpath
+    if cargo run --bin vm -- "../test/$class_name.class" "$classpath"; then
         print_success "JVM执行完成"
     else
         print_error "JVM执行失败"

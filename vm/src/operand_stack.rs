@@ -1,7 +1,10 @@
+use crate::heap::RawPtr;
+
 #[derive(Debug)]
 pub struct OperandStack {
     max_size: usize,
     values: Vec<i32>,
+    obj_refs: Vec<RawPtr>, // 存储对象引用
 }
 
 impl OperandStack {
@@ -9,6 +12,7 @@ impl OperandStack {
         OperandStack {
             max_size,
             values: Vec::with_capacity(max_size),
+            obj_refs: Vec::with_capacity(max_size),
         }
     }
 
@@ -25,6 +29,17 @@ impl OperandStack {
 
     pub fn push_null(&mut self) {
         self.push_int(0);
+    }
+    
+    pub fn push_obj_ref(&mut self, obj_ref: RawPtr) {
+        if self.obj_refs.len() >= self.max_size {
+            panic!("Stack overflow");
+        }
+        self.obj_refs.push(obj_ref);
+    }
+    
+    pub fn pop_obj_ref(&mut self) -> RawPtr {
+        self.obj_refs.pop().expect("Stack underflow")
     }
 }
 

@@ -49,7 +49,7 @@ impl ClassPathManager {
     }
 
     pub fn add_class_paths(&mut self, paths: &str) {
-        for path in paths.split(':') {
+        for path in paths.split(':').filter(|p| !p.is_empty()) {
             self.add_class_path(path);
         }
     }
@@ -61,9 +61,14 @@ impl ClassPathManager {
             .replace("/", std::path::MAIN_SEPARATOR_STR)
             .replace(".", std::path::MAIN_SEPARATOR_STR)
             + ".class";
-        for entry in &self.run_time_class_path {
+        
+        println!("[ClassPathManager] 搜索类: {} (文件名: {})", class_name, file_name);
+        println!("[ClassPathManager] 类路径条目数量: {}", self.run_time_class_path.len());
+        
+        for (i, entry) in self.run_time_class_path.iter().enumerate() {
             match entry {
                 ClassPathEntry::DIR { path } => {
+                    println!("[ClassPathManager] 条目 {}: 目录 {}", i, path);
                     let fname = std::path::Path::new(&path).join(&file_name);
                     println!("[ClassPathManager] 查找类文件: {}", fname.display());
                     match fs::File::open(&fname) {
@@ -76,23 +81,29 @@ impl ClassPathManager {
                     }
                 }
                 ClassPathEntry::JAR { path } => {
+                    println!("[ClassPathManager] 条目 {}: JAR {}", i, path);
                     let fname = std::path::Path::new(&path);
                     println!("[ClassPathManager] 查找JAR文件: {}，类: {}", fname.display(), file_name);
-                    match fs::File::open(fname) {
-                        Ok(file) => {
-                            let reader = BufReader::new(file);
-                            let mut archive = zip::ZipArchive::new(reader).unwrap();
-                            let class_file = archive.by_name(&file_name).unwrap();
-                            if class_file.is_file() {
-                                let class_file = ClassFileParser::zip(class_file).parse();
-                                return Ok(class_file);
+                    if let Ok(file) = fs::File::open(fname) {
+                        let reader = BufReader::new(file);
+                        if let Ok(mut archive) = zip::ZipArchive::new(reader) {
+                            if let Ok(class_file) = archive.by_name(&file_name) {
+                                if class_file.is_file() {
+                                    return Ok(ClassFileParser::zip(class_file).parse());
+                                }
+                            } else {
+                                println!("[ClassPathManager] JAR中未找到类: {}", file_name);
                             }
+                        } else {
+                            println!("[ClassPathManager] 无法解析JAR文件: {}", path);
                         }
-                        Err(_) => continue,
+                    } else {
+                        println!("[ClassPathManager] 无法打开JAR文件: {}", path);
                     }
                 }
             }
         }
+        println!("[ClassPathManager] 在所有类路径中未找到类: {}", class_name);
         Err(ClassNotFoundError)
     }
 }

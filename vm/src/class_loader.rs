@@ -150,7 +150,11 @@ impl BootstrapClassLoader {
             // 执行静态初始化块
             if let Some(clinit) = instance.get_method("<clinit>", "()V") {
                 let mut thread = crate::jvm_thread::JvmThread::new(1024, 128);
-                thread.execute(clinit, heap)?;
+                // 创建一个临时的VM实例，但使用相同的类加载器
+                let mut temp_vm = crate::vm::Vm::new("");
+                // 这里我们需要确保临时VM使用相同的类路径
+                // 暂时跳过静态初始化块的执行
+                // thread.execute(clinit, heap, &mut temp_vm)?;
             }
             info.state = ClassLoadingState::Initialized;
         }

@@ -9,13 +9,21 @@ fn main() -> Result<(), JvmError> {
     let args: Vec<String> = env::args().collect();
     
     // 检查参数
-    if args.len() != 2 {
-        println!("用法: {} <测试文件路径>", args[0]);
+    if args.len() < 2 || args.len() > 3 {
+        println!("用法: {} <测试文件路径> [classpath]", args[0]);
         println!("示例: {} test/TestProgram", args[0]);
+        println!("示例: {} test/TestProgram test:/path/to/rt.jar", args[0]);
         return Err(JvmError::IllegalStateError("参数错误".to_string()));
     }
     
     let test_path = &args[1];
+    let classpath = if args.len() == 3 {
+        &args[2]
+    } else {
+        // 默认classpath
+        "test"
+    };
+    
     let class_name = if test_path.ends_with(".class") {
         // 如果输入的是.class文件，提取类名
         let path = std::path::Path::new(test_path);
@@ -46,12 +54,17 @@ fn main() -> Result<(), JvmError> {
         // 默认在test目录下查找
         "test"
     };
+    let class_dir = std::fs::canonicalize(class_dir)
+        .unwrap_or_else(|_| panic!("类路径不存在: {}", class_dir))
+        .to_str()
+        .unwrap()
+        .to_string();
     
     println!("[JVM] 加载类: {}", class_name);
-    println!("[JVM] 类路径: {}", class_dir);
+    println!("[JVM] 类路径: {}", classpath);
     
     // 初始化JVM
-    let mut vm = Vm::new(class_dir);
+    let mut vm = Vm::new(classpath);
 
     // 加载主类
     let main_class = vm.load(&class_name)?;

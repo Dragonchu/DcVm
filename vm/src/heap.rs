@@ -11,7 +11,7 @@ use crate::JvmValue;
 
 #[bitfield(u64)]
 #[derive(PartialEq, Eq)]
-struct Header {
+pub(crate) struct Header {
     #[bits(10)]
     pub(crate) class_id: usize,
 
@@ -26,9 +26,13 @@ struct Header {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub struct RawPtr(*mut u8);
+pub struct RawPtr(pub *mut u8);
 
 impl RawPtr {
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+
     pub fn put_field(&mut self, value: JvmValue, index: usize) {
         unsafe {
             let ptr = self.0.add(index);
@@ -180,87 +184,85 @@ impl Heap {
             nxt: MemoryChunk::new(semi_space_capacity),
         }
     }
-}
 
-impl Heap {
-    pub(crate) fn alloc(&mut self, klass: &Klass) -> Result<RawPtr, AllocError> {
-        match klass {
-            Klass::Instance(instance) => {
-                let header_size = size_of::<Header>();
-                let required_size = header_size + klass.get_instance_field_cnt();
-                self.cur.alloc(Self::align_to_8_bytes(required_size))
-                    .map(|oop| {
-                        Self::initial_oop(instance, oop)
-                    }).ok_or(AllocError::OOM)
-            }
-            Klass::Array(_) => panic!(),
+    /// 分配一个对象，返回RawPtr
+    pub fn alloc_object(&mut self, klass: &InstanceKlass) -> Result<RawPtr, AllocError> {
+        let header_size = std::mem::size_of::<Header>();
+        let field_size = klass.get_instance_fields().len() * 8; // 8字节对齐，支持int/引用
+        let total_size = Self::align_to_8_bytes(header_size + field_size);
+        let ptr = self.cur.alloc(total_size).ok_or(AllocError::OOM)?;
+        // 初始化对象头部
+        unsafe {
+            let header_ptr = ptr.0 as *mut Header;
+            *header_ptr = Header::new()
+                .with_class_id(klass.class_id)
+                .with_state(GcState::Unmarked)
+                .with_identity_hash_code(0)
+                .with_size(total_size);
+        }
+        Ok(ptr)
+    }
+
+    /// 分配一个数组对象，返回RawPtr
+    pub fn alloc_array(&mut self, klass: &ArrayKlass, length: usize) -> Result<RawPtr, AllocError> {
+        let header_size = std::mem::size_of::<Header>();
+        let elem_size = 8; // 8字节对齐，支持int/引用
+        let total_size = Self::align_to_8_bytes(header_size + 8 + length * elem_size); // 8字节存储length
+        let ptr = self.cur.alloc(total_size).ok_or(AllocError::OOM)?;
+        // 初始化头部和length
+        unsafe {
+            let header_ptr = ptr.0 as *mut Header;
+            *header_ptr = Header::new()
+                .with_class_id(klass.class_id)
+                .with_state(GcState::Unmarked)
+                .with_identity_hash_code(0)
+                .with_size(total_size);
+            let len_ptr = ptr.0.add(header_size) as *mut usize;
+            *len_ptr = length;
+        }
+        Ok(ptr)
+    }
+
+    /// 设置对象字段
+    pub fn put_field(&mut self, obj: RawPtr, field_offset: usize, value: JvmValue) {
+        let header_size = std::mem::size_of::<Header>();
+        let addr = unsafe { obj.0.add(header_size + field_offset) };
+        match value {
+            JvmValue::Int(v) => unsafe { *(addr as *mut i32) = v as i32 },
+            JvmValue::ObjRef(ptr) => unsafe { *(addr as *mut RawPtr) = ptr },
+            _ => unimplemented!("暂不支持该类型"),
         }
     }
 
-    pub(crate) fn alloc_array(&mut self, klass: &Klass, length: usize) -> Result<RawPtr, AllocError> {
-        match klass {
-            Klass::Instance(_) => {
-                panic!()
-            }
-            Klass::Array(array) => {
-                let header_size = size_of::<Header>();
-                let required_size = header_size + length *  8;
-                self.cur.alloc(Self::align_to_8_bytes(required_size))
-                    .map(|oop| {
-                        Self::initial_array_oop(array, oop)
-                    }).ok_or(AllocError::OOM)
-            }
+    /// 获取对象字段
+    pub fn get_field(&self, obj: RawPtr, field_offset: usize) -> JvmValue {
+        let header_size = std::mem::size_of::<Header>();
+        let addr = unsafe { obj.0.add(header_size + field_offset) };
+        // 这里只举例 int
+        let v = unsafe { *(addr as *const i32) };
+        JvmValue::Int(v as u32)
+    }
+
+    /// 设置数组元素
+    pub fn put_array_element(&mut self, arr: RawPtr, index: usize, value: JvmValue) {
+        let header_size = std::mem::size_of::<Header>();
+        let addr = unsafe { arr.0.add(header_size + 8 + index * 8) };
+        match value {
+            JvmValue::Int(v) => unsafe { *(addr as *mut i32) = v as i32 },
+            JvmValue::ObjRef(ptr) => unsafe { *(addr as *mut RawPtr) = ptr },
+            _ => unimplemented!("暂不支持该类型"),
         }
     }
 
-    fn initial_oop(klass: &InstanceKlass, oop: RawPtr) -> RawPtr {
-        oop
-    }
-
-    fn initial_array_oop(klass: &ArrayKlass, oop: RawPtr) -> RawPtr {
-        oop
+    /// 获取数组元素
+    pub fn get_array_element(&self, arr: RawPtr, index: usize) -> JvmValue {
+        let header_size = std::mem::size_of::<Header>();
+        let addr = unsafe { arr.0.add(header_size + 8 + index * 8) };
+        let v = unsafe { *(addr as *const i32) };
+        JvmValue::Int(v as u32)
     }
 
     fn align_to_8_bytes(required_size: usize) -> usize {
-        Self::align_up(required_size, 8)
-    }
-
-    /// Align downwards. Returns the greatest x with alignment `align`
-    /// so that x <= addr. The alignment must be a power of 2.
-    fn align_down(addr: usize, align: usize) -> usize {
-        if align.is_power_of_two() {
-            addr & !(align - 1)
-        } else if align == 0 {
-            addr
-        } else {
-            panic!("`align` must be a power of 2");
-        }
-    }
-
-    /// Align upwards. Returns the smallest x with alignment `align`
-    /// so that x >= addr. The alignment must be a power of 2.
-    fn align_up(addr: usize, align: usize) -> usize {
-        Self::align_down(addr + align - 1, align)
-    }
-
-    pub fn store_byte(&mut self, ptr: RawPtr, index: usize, value: u8) {
-        unsafe {
-            let ptr = ptr.0.add(index);
-            std::ptr::write(ptr, value);
-        }
-    }
-
-    pub fn store_field(&mut self, ptr: RawPtr, name: &str, desc: &str, value: RawPtr) {
-        unsafe {
-            let ptr = ptr.0.add(8); // Skip header
-            std::ptr::write(ptr as *mut RawPtr, value);
-        }
-    }
-
-    pub fn store_array_element(&mut self, ptr: RawPtr, index: usize, value: RawPtr) {
-        unsafe {
-            let ptr = ptr.0.add(8 + index * 8); // Skip header and multiply by element size
-            std::ptr::write(ptr as *mut RawPtr, value);
-        }
+        (required_size + 7) & !7
     }
 }
