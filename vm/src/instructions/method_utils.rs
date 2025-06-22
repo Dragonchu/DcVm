@@ -137,30 +137,6 @@ pub fn handle_special_method_call(
     frame: &mut Frame
 ) -> Option<bool> {
     match (class_name, method_name) {
-        ("java/io/PrintStream", "println") => {
-            // 处理 System.out.println 调用
-            if let Some(arg) = args.get(0) {
-                match arg {
-                    JvmValue::Null => println!("null"),
-                    JvmValue::Int(v) => println!("{}", v),
-                    JvmValue::Long(v) => println!("{}", v),
-                    JvmValue::Boolean(v) => println!("{}", v != &0),
-                    JvmValue::ObjRef(ptr) => {
-                        if ptr.0.is_null() {
-                            println!("null");
-                        } else {
-                            // 尝试从 VM 的 string_map 取内容
-                            // 这里只能打印 [Object]，具体内容由 native_method.rs 负责
-                            println!("[Object]");
-                        }
-                    }
-                    _ => println!("[Unsupported type]"),
-                }
-            } else {
-                println!();
-            }
-            Some(true)
-        }
         ("java/lang/System", "currentTimeMillis") => {
             // 处理 System.currentTimeMillis() 调用
             let current_time = std::time::SystemTime::now()
@@ -260,11 +236,6 @@ mod tests {
             local_vars: LocalVars::new(10),
             method,
         };
-        
-        // 测试 println 调用
-        let args = vec![JvmValue::Int(42)];
-        let result = handle_special_method_call("java/io/PrintStream", "println", &args, &mut frame);
-        assert_eq!(result, Some(true));
         
         // 测试 currentTimeMillis 调用
         let args = vec![];

@@ -58,22 +58,41 @@ impl NativeMethod for SystemOutPrintln {
             jvm_log!("[Native] args[{}] = {:?}", i, arg);
         }
         // 打印内容
-        if !args.is_empty() {
-            let value = &args[0];
+        if args.len() >= 2 {
+            // 第一个参数是this引用，第二个参数是要打印的对象
+            let value = &args[1];
             match value {
                 JvmValue::ObjRef(ptr) => {
                     if ptr.is_null() {
                         println!("null");
-                    } else if let Some(s) = vm.string_map.borrow().get(ptr) {
-                        println!("{}", s);
-                    } else if (ptr.0 as usize) % 8 == 0 && (ptr.0 as usize) > 0x1000 {
-                        // 仅对对齐且非伪造指针尝试解码
-                        match extract_string_content(*ptr) {
-                            Ok(s) => println!("{}", s),
-                            Err(_) => println!("[Object]"),
-                        }
                     } else {
-                        println!("[Object]");
+                        // 添加调试日志
+                        let string_map = vm.string_map.borrow();
+                        jvm_log!("[Native] System.out.println: string_map contains {} entries", string_map.len());
+                        jvm_log!("[Native] System.out.println: looking for ptr {:?}", ptr);
+                        for (key, val) in string_map.iter() {
+                            jvm_log!("[Native] System.out.println: string_map entry: {:?} -> '{}'", key, val);
+                        }
+                        
+                        if let Some(s) = string_map.get(ptr) {
+                            jvm_log!("[Native] System.out.println: found string in map: '{}'", s);
+                            println!("{}", s);
+                        } else if (ptr.0 as usize) % 8 == 0 && (ptr.0 as usize) > 0x1000 {
+                            // 仅对对齐且非伪造指针尝试解码
+                            match extract_string_content(*ptr) {
+                                Ok(s) => {
+                                    jvm_log!("[Native] System.out.println: extracted string content: '{}'", s);
+                                    println!("{}", s);
+                                },
+                                Err(e) => {
+                                    jvm_log!("[Native] System.out.println: failed to extract string content: {:?}", e);
+                                    println!("[Object]");
+                                }
+                            }
+                        } else {
+                            jvm_log!("[Native] System.out.println: ptr not aligned or too small: {:?}", ptr);
+                            println!("[Object]");
+                        }
                     }
                 }
                 JvmValue::Int(v) => println!("{}", v),
@@ -84,6 +103,9 @@ impl NativeMethod for SystemOutPrintln {
                 JvmValue::Null => println!("null"),
                 _ => println!("[Unsupported]"),
             }
+        } else if args.len() == 1 {
+            // 只有一个参数（this引用），打印空行
+            println!();
         } else {
             println!();
         }
