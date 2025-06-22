@@ -130,6 +130,14 @@ impl InstanceKlass {
     pub fn get_instance_fields(&self) -> &Vec<Field> {
         &self.i_fields
     }
+
+    pub fn get_static_fields_mut(&mut self) -> &mut Vec<Field> {
+        &mut self.s_fields
+    }
+
+    pub fn get_static_field_values_mut(&mut self) -> &mut Vec<JvmValue> {
+        &mut self.s_field_val
+    }
 }
 
 #[derive(Debug, Clone)]

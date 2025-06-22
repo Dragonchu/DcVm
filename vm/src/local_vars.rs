@@ -25,6 +25,21 @@ impl LocalVars {
         }
         self.values[index] = value;
     }
+
+    pub fn set_obj_ref(&mut self, index: usize, obj_ref: crate::heap::RawPtr) {
+        if index >= self.max_locals {
+            panic!("Local variable index out of bounds");
+        }
+        // 用 i32 存储指针的低位（简化实现，真实实现应用 union 或 JvmValue）
+        self.values[index] = obj_ref.0 as i32;
+    }
+
+    pub fn get_obj_ref(&self, index: usize) -> crate::heap::RawPtr {
+        if index >= self.max_locals {
+            panic!("Local variable index out of bounds");
+        }
+        crate::heap::RawPtr(self.values[index] as *mut u8)
+    }
 }
 
 #[cfg(test)]

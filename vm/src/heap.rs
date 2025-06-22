@@ -8,6 +8,7 @@ use std::ptr::NonNull;
 use log::debug;
 use reader::types::{U1, U2, U4, U8};
 use crate::JvmValue;
+use std::hash::{Hash, Hasher};
 
 #[bitfield(u64)]
 #[derive(PartialEq, Eq)]
@@ -25,7 +26,7 @@ pub(crate) struct Header {
     pub(crate) size: usize,
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 pub struct RawPtr(pub *mut u8);
 
 impl RawPtr {

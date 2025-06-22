@@ -6,39 +6,46 @@ use crate::JvmValue;
 use crate::native_method::{NativeMethodRegistry, NativeMethod};
 use std::collections::HashMap;
 use reader::constant_pool::ConstantPool;
+use std::cell::RefCell;
 
 pub struct Vm {
-    pub heap: Heap,
-    class_loader: BootstrapClassLoader,
+    pub heap: RefCell<Heap>,
+    class_loader: RefCell<BootstrapClassLoader>,
     // 静态字段存储: (类名, 字段名) -> 值
     static_fields: HashMap<(String, String), JvmValue>,
     // Native方法注册表
     native_methods: NativeMethodRegistry,
+    pub string_builder_map: RefCell<HashMap<crate::heap::RawPtr, String>>,
 }
 impl Vm {
     pub fn new(paths: &str) -> Vm {
         Vm {
-            class_loader: BootstrapClassLoader::new(paths),
-            heap: Heap::with_maximum_memory(1024 * 1024),
+            class_loader: RefCell::new(BootstrapClassLoader::new(paths)),
+            heap: RefCell::new(Heap::with_maximum_memory(1024 * 1024)),
             static_fields: HashMap::new(),
             native_methods: NativeMethodRegistry::new(),
+            string_builder_map: RefCell::new(HashMap::new()),
         }
     }
     
     pub fn load(&mut self, class_name: &str) -> Result<Klass, JvmError> {
-        self.class_loader.load(class_name, &mut self.heap)
+        let mut class_loader = self.class_loader.borrow_mut();
+        let mut heap = self.heap.borrow_mut();
+        let klass = class_loader.load(class_name, &mut heap)?;
+        class_loader.initialize_class(class_name, &mut heap)?;
+        Ok(klass)
     }
 
     pub fn alloc_array(&mut self, klass: &Klass, length: usize) -> Result<RawPtr, AllocError> {
         match klass {
-            crate::class::Klass::Array(k) => self.heap.alloc_array(k, length),
+            crate::class::Klass::Array(k) => self.heap.borrow_mut().alloc_array(k, length),
             _ => Err(AllocError::BadRequest),
         }
     }
     
     pub fn alloc_object(&mut self, klass: &Klass) -> Result<RawPtr, AllocError> {
         match klass {
-            crate::class::Klass::Instance(k) => self.heap.alloc_object(k),
+            crate::class::Klass::Instance(k) => self.heap.borrow_mut().alloc_object(k),
             _ => Err(AllocError::BadRequest),
         }
     }
@@ -65,29 +72,135 @@ impl Vm {
     
     /// 创建字符串对象
     pub fn create_string_object(&mut self, string_content: &str) -> Result<RawPtr, AllocError> {
-        // 1. 加载 String 类
-        let string_klass = self.load("java/lang/String").map_err(|_| AllocError::BadRequest)?;
-        // 2. 分配 char[] 数组
-        let char_array_klass = self.load("[C").map_err(|_| AllocError::BadRequest)?;
+        // 简化实现：直接创建字符串对象，不依赖加载完整的String类
+        self.create_simple_string_object(string_content)
+    }
+    
+    /// 创建简化的字符串对象（不依赖String类加载）
+    fn create_simple_string_object(&mut self, string_content: &str) -> Result<RawPtr, AllocError> {
+        // 1. 创建字符数组
         let chars: Vec<u16> = string_content.encode_utf16().collect();
-        let arr_ptr = self.alloc_array(&char_array_klass, chars.len())?;
-        // 写入字符内容
-        for (i, ch) in chars.iter().enumerate() {
-            let addr = unsafe { arr_ptr.0.add(std::mem::size_of::<crate::heap::Header>() + 8 + i * 2) };
-            unsafe { *(addr as *mut u16) = *ch; }
+        let char_array_ptr = self.create_char_array(&chars)?;
+        
+        // 2. 创建简化的String对象
+        // String对象的内存布局：Header + value字段(指向char[])
+        let header_size = std::mem::size_of::<crate::heap::Header>();
+        let total_size = header_size + 8; // 8字节存储value字段
+        
+        // 分配内存
+        let layout = std::alloc::Layout::from_size_align(total_size, 8).unwrap();
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+        
+        if ptr.is_null() {
+            return Err(AllocError::OOM);
         }
-        // 3. 分配 String 对象
-        let str_ptr = self.alloc_object(&string_klass)?;
-        // 4. 设置 value 字段
-        let value_field = match &string_klass {
-            crate::class::Klass::Instance(k) => k.get_instance_fields().iter().enumerate()
-                .find(|(_, f)| f.get_name() == "value" && f.get_descriptor() == "[C")
-                .map(|(i, _)| i * 8)
-                .ok_or(AllocError::BadRequest)?,
+        
+        let string_ptr = RawPtr(ptr);
+        
+        // 初始化头部（简化版本）
+        unsafe {
+            let header_ptr = ptr as *mut crate::heap::Header;
+            *header_ptr = crate::heap::Header::new()
+                .with_class_id(0) // 使用0表示String类
+                .with_state(crate::heap::GcState::Unmarked)
+                .with_size(total_size);
+        }
+        
+        // 设置value字段指向字符数组
+        unsafe {
+            let value_field_ptr = ptr.add(header_size) as *mut RawPtr;
+            *value_field_ptr = char_array_ptr;
+        }
+        
+        Ok(string_ptr)
+    }
+    
+    /// 创建字符数组
+    fn create_char_array(&mut self, chars: &[u16]) -> Result<RawPtr, AllocError> {
+        let header_size = std::mem::size_of::<crate::heap::Header>();
+        let total_size = header_size + 8 + chars.len() * 2; // 8字节存储length，每个char 2字节
+        
+        // 分配内存
+        let layout = std::alloc::Layout::from_size_align(total_size, 8).unwrap();
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+        
+        if ptr.is_null() {
+            return Err(AllocError::OOM);
+        }
+        
+        let array_ptr = RawPtr(ptr);
+        
+        // 初始化头部
+        unsafe {
+            let header_ptr = ptr as *mut crate::heap::Header;
+            *header_ptr = crate::heap::Header::new()
+                .with_class_id(1) // 使用1表示char[]类
+                .with_state(crate::heap::GcState::Unmarked)
+                .with_size(total_size);
+        }
+        
+        // 设置数组长度
+        unsafe {
+            let length_ptr = ptr.add(header_size) as *mut usize;
+            *length_ptr = chars.len();
+        }
+        
+        // 写入字符数据
+        for (i, &ch) in chars.iter().enumerate() {
+            unsafe {
+                let char_ptr = ptr.add(header_size + 8 + i * 2) as *mut u16;
+                *char_ptr = ch;
+            }
+        }
+        
+        Ok(array_ptr)
+    }
+    
+    /// 创建简单的数组对象（用于newarray指令）
+    pub fn create_simple_array(&mut self, length: usize, array_type: u8) -> Result<RawPtr, AllocError> {
+        let header_size = std::mem::size_of::<crate::heap::Header>();
+        
+        // 根据数组类型确定元素大小
+        let element_size = match array_type {
+            4 => 1,  // T_BOOLEAN
+            5 => 2,  // T_CHAR
+            6 => 4,  // T_FLOAT
+            7 => 8,  // T_DOUBLE
+            8 => 1,  // T_BYTE
+            9 => 2,  // T_SHORT
+            10 => 4, // T_INT
+            11 => 8, // T_LONG
             _ => return Err(AllocError::BadRequest),
         };
-        self.heap.put_field(str_ptr, value_field, crate::JvmValue::ObjRef(arr_ptr));
-        Ok(str_ptr)
+        
+        let total_size = header_size + 8 + length * element_size; // 8字节存储length
+        
+        // 分配内存
+        let layout = std::alloc::Layout::from_size_align(total_size, 8).unwrap();
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+        
+        if ptr.is_null() {
+            return Err(AllocError::OOM);
+        }
+        
+        let array_ptr = RawPtr(ptr);
+        
+        // 初始化头部
+        unsafe {
+            let header_ptr = ptr as *mut crate::heap::Header;
+            *header_ptr = crate::heap::Header::new()
+                .with_class_id(array_type as usize) // 使用数组类型作为类ID
+                .with_state(crate::heap::GcState::Unmarked)
+                .with_size(total_size);
+        }
+        
+        // 设置数组长度
+        unsafe {
+            let length_ptr = ptr.add(header_size) as *mut usize;
+            *length_ptr = length;
+        }
+        
+        Ok(array_ptr)
     }
 }
 

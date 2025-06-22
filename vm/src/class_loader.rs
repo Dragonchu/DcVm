@@ -71,13 +71,13 @@ impl BootstrapClassLoader {
     /// # 参数
     /// * `class_name` - 要加载的类名
     /// * `heap` - 堆内存引用
+    /// * `vm` - VM实例引用
     /// 
     /// # 返回
     /// * `Result<Klass, JvmError>` - 加载成功返回类信息，失败返回错误
     pub fn load(&self, class_name: &str, heap: &mut Heap) -> Result<Klass, JvmError> {
         let class_info = self.get_or_create_class_info(class_name);
         let mut info = class_info.borrow_mut();
-        
         match info.state {
             ClassLoadingState::NotLoaded => {
                 info.state = ClassLoadingState::Loading;
@@ -86,7 +86,6 @@ impl BootstrapClassLoader {
                         info.klass = Some(klass.clone());
                         info.state = ClassLoadingState::Loaded;
                         self.prepare_class(&mut info, heap)?;
-                        self.initialize_class(&mut info, heap)?;
                         Ok(klass)
                     }
                     Err(e) => {
@@ -101,11 +100,9 @@ impl BootstrapClassLoader {
             }
             ClassLoadingState::Loaded => {
                 self.prepare_class(&mut info, heap)?;
-                self.initialize_class(&mut info, heap)?;
                 Ok(info.klass.as_ref().unwrap().clone())
             }
             ClassLoadingState::Prepared => {
-                self.initialize_class(&mut info, heap)?;
                 Ok(info.klass.as_ref().unwrap().clone())
             }
             ClassLoadingState::Initialized => {
@@ -140,21 +137,18 @@ impl BootstrapClassLoader {
 
     /// 初始化类
     /// 执行静态初始化块
-    fn initialize_class(&self, info: &mut ClassLoadingInfo, heap: &mut Heap) -> Result<(), JvmError> {
+    pub fn initialize_class(&self, class_name: &str, heap: &mut Heap) -> Result<(), JvmError> {
+        let class_info = self.get_or_create_class_info(class_name);
+        let mut info = class_info.borrow_mut();
         if info.state != ClassLoadingState::Prepared {
             return Ok(());
         }
-
         let klass = info.klass.as_ref().unwrap();
         if let Klass::Instance(instance) = klass {
             // 执行静态初始化块
             if let Some(clinit) = instance.get_method("<clinit>", "()V") {
                 let mut thread = crate::jvm_thread::JvmThread::new(1024, 128);
-                // 创建一个临时的VM实例，但使用相同的类加载器
-                let mut temp_vm = crate::vm::Vm::new("");
-                // 这里我们需要确保临时VM使用相同的类路径
-                // 暂时跳过静态初始化块的执行
-                // thread.execute(clinit, heap, &mut temp_vm)?;
+                thread.execute(clinit, heap, None)?;
             }
             info.state = ClassLoadingState::Initialized;
         }
@@ -227,6 +221,39 @@ impl BootstrapClassLoader {
             .search_class(class_name)
             .unwrap_or_else(|_| panic!("class {} not found", class_name));
         InstanceKlass::of(&class_file, self.nxt_id.get(), heap)
+    }
+
+    /// 设置静态字段值
+    pub fn set_static_field(&self, class_name: &str, field_name: &str, value: crate::JvmValue, heap: &mut crate::heap::Heap) {
+        if let Some(class_info) = self.classes.borrow().get(class_name) {
+            let mut info = class_info.borrow_mut();
+            if let Some(Klass::Instance(ref mut instance)) = info.klass {
+                let idx = instance.get_static_fields()
+                    .iter()
+                    .position(|field| field.get_name() == field_name);
+                if let Some(i) = idx {
+                    let vals = instance.get_static_field_values_mut();
+                    vals[i] = value;
+                }
+            }
+        }
+    }
+
+    /// 获取静态字段值
+    pub fn get_static_field(&self, class_name: &str, field_name: &str) -> Option<crate::JvmValue> {
+        if let Some(class_info) = self.classes.borrow().get(class_name) {
+            let info = class_info.borrow();
+            if let Some(Klass::Instance(ref instance)) = info.klass {
+                let fields = instance.get_static_fields();
+                let vals = instance.get_static_field_values();
+                for (i, field) in fields.iter().enumerate() {
+                    if field.get_name() == field_name {
+                        return Some(vals[i]);
+                    }
+                }
+            }
+        }
+        None
     }
 }
 
