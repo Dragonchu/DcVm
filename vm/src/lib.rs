@@ -10,6 +10,7 @@ pub mod class_loader;
 pub mod error;
 pub mod field;
 pub mod heap;
+#[macro_use]
 pub mod instructions;
 pub mod jvm_thread;
 pub mod logger;
@@ -21,6 +22,22 @@ pub mod stack;
 pub mod vm;
 pub mod operand_stack;
 pub mod local_vars;
+
+// def_instr 宏定义
+#[macro_export]
+macro_rules! def_instr {
+    ($name:ident, $body:block) => {
+        pub fn $name(
+            thread: &mut crate::jvm_thread::JvmThread,
+            _method: &crate::method::Method,
+            code: &[u8],
+            pc: &mut usize,
+            _vm: Option<&mut crate::vm::Vm>,
+        ) -> Result<(), crate::error::JvmError> {
+            $body
+        }
+    };
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum JvmValue {

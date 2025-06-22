@@ -15,7 +15,16 @@ impl NativeMethodRegistry {
         };
         
         // 注册System.out.println方法
-        registry.register("java/lang/System.out.println", Box::new(SystemOutPrintln));
+        registry.register("java/io/PrintStream.println", Box::new(SystemOutPrintln));
+        
+        // 注册StringBuilder方法
+        registry.register("java/lang/StringBuilder.toString", Box::new(StringBuilderToString));
+        registry.register("java/lang/StringBuilder.append", Box::new(StringBuilderAppend));
+        
+        // 注册Object方法
+        registry.register("java/lang/Object.toString", Box::new(ObjectToString));
+        // 注册Object.registerNatives空实现
+        registry.register("java/lang/Object.registerNatives", Box::new(ObjectRegisterNatives));
         
         registry
     }
@@ -40,23 +49,25 @@ pub struct SystemOutPrintln;
 impl NativeMethod for SystemOutPrintln {
     fn invoke(&self, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
         jvm_log!("[Native] System.out.println called with {} arguments", args.len());
-        
-        if args.is_empty() {
+        for (i, arg) in args.iter().enumerate() {
+            jvm_log!("[Native] args[{}] = {:?}", i, arg);
+        }
+        if args.len() <= 1 {
             println!();
             return Ok(None);
         }
-        
-        // 处理第一个参数（通常是字符串）
-        match &args[0] {
+        // 跳过this，处理第一个实际参数
+        match &args[1] {
             JvmValue::ObjRef(ptr) => {
+                jvm_log!("[Native] Processing object reference: {:?}", ptr);
                 // 尝试从字符串对象中提取字符串内容
                 match extract_string_content(*ptr) {
                     Ok(string_content) => {
                         jvm_log!("[Native] Printing string: {}", string_content);
                         println!("{}", string_content);
                     }
-                    Err(_) => {
-                        // 如果无法提取字符串内容，则打印对象引用
+                    Err(e) => {
+                        jvm_log!("[Native] Failed to extract string content: {:?}", e);
                         jvm_log!("[Native] Printing object reference: {:?}", ptr);
                         println!("[Object: {:?}]", ptr);
                     }
@@ -85,7 +96,6 @@ impl NativeMethod for SystemOutPrintln {
                 println!("{}", value);
             }
             JvmValue::Char(value) => {
-                // 将u16转换为char，需要处理UTF-16编码
                 if let Some(ch) = char::from_u32(*value as u32) {
                     jvm_log!("[Native] Printing char value: {}", ch);
                     println!("{}", ch);
@@ -103,8 +113,60 @@ impl NativeMethod for SystemOutPrintln {
                 println!("[Unsupported type]");
             }
         }
+        Ok(None)
+    }
+}
+
+/// StringBuilder.toString实现
+pub struct StringBuilderToString;
+
+impl NativeMethod for StringBuilderToString {
+    fn invoke(&self, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
+        jvm_log!("[Native] StringBuilder.toString called");
         
-        Ok(None) // println返回void
+        // StringBuilder.toString()没有参数，this引用在调用时会被弹出
+        // 这里我们返回一个假的字符串对象引用
+        // 在实际实现中，应该从StringBuilder对象中提取内容并创建String对象
+        let fake_string_ptr = RawPtr(std::ptr::null_mut());
+        Ok(Some(JvmValue::ObjRef(fake_string_ptr)))
+    }
+}
+
+/// StringBuilder.append实现
+pub struct StringBuilderAppend;
+
+impl NativeMethod for StringBuilderAppend {
+    fn invoke(&self, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
+        jvm_log!("[Native] StringBuilder.append called with {} arguments", args.len());
+        
+        // StringBuilder.append()返回this引用以支持链式调用
+        // 这里我们返回一个假的对象引用
+        let fake_this_ptr = RawPtr(std::ptr::null_mut());
+        Ok(Some(JvmValue::ObjRef(fake_this_ptr)))
+    }
+}
+
+/// Object.toString实现
+pub struct ObjectToString;
+
+impl NativeMethod for ObjectToString {
+    fn invoke(&self, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
+        jvm_log!("[Native] Object.toString called");
+        
+        // Object.toString()返回对象的字符串表示
+        // 这里我们返回一个假的字符串对象引用
+        let fake_string_ptr = RawPtr(std::ptr::null_mut());
+        Ok(Some(JvmValue::ObjRef(fake_string_ptr)))
+    }
+}
+
+/// Object.registerNatives实现
+pub struct ObjectRegisterNatives;
+
+impl NativeMethod for ObjectRegisterNatives {
+    fn invoke(&self, _args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
+        // 什么都不做，直接返回
+        Ok(None)
     }
 }
 

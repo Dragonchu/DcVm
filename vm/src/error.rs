@@ -9,6 +9,7 @@ pub enum JvmError {
     IllegalStateError(String),
     StackOverflowError(String),
     OutOfMemoryError(String),
+    Unimplemented(String),
 }
 
 impl fmt::Display for JvmError {
@@ -21,6 +22,7 @@ impl fmt::Display for JvmError {
             JvmError::IllegalStateError(msg) => write!(f, "IllegalStateError: {}", msg),
             JvmError::StackOverflowError(msg) => write!(f, "StackOverflowError: {}", msg),
             JvmError::OutOfMemoryError(msg) => write!(f, "OutOfMemoryError: {}", msg),
+            JvmError::Unimplemented(msg) => write!(f, "Unimplemented: {}", msg),
         }
     }
 }

@@ -1,8 +1,20 @@
 use reader::types::{U1, U2, U4};
 use crate::method::ArrayType;
+use crate::jvm_thread::Frame;
+use crate::error::JvmError;
+use crate::vm::Vm;
 
-#[derive(Debug)]
+/// 指令执行函数类型
+pub type InstructionFn = fn(
+    frame: &mut Frame,
+    code: &[u8],
+    pc: &mut usize,
+    vm: Option<&mut Vm>,
+) -> Result<(), JvmError>;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
+    // --- 自动补全所有变体 ---
     Aaload,
     Aastore,
     Aconst_null,
@@ -123,7 +135,7 @@ pub enum Instruction {
     Ifle(U2),
     Ifnonnull(U2),
     Ifnull(U2),
-    Iinc(U1,i8),
+    Iinc(U1, i8),
     Iload(U1),
     Iload_0,
     Iload_1,
@@ -133,7 +145,7 @@ pub enum Instruction {
     Ineg,
     Instanceof(U2),
     Invokedynamic(U2),
-    Invokeinterface(U2,U1),
+    Invokeinterface(U2, U1),
     Invokespecial(U2),
     Invokestatic(U2),
     Invokevirtual(U2),
@@ -173,7 +185,7 @@ pub enum Instruction {
     Lload_3,
     Lmul,
     Lneg,
-    Lookupswitch(U4,U4,Vec<(U4,i32)>),
+    Lookupswitch(U4, U4, Vec<(U4, i32)>),
     Lor,
     Lrem,
     Lreturn,
@@ -203,7 +215,8 @@ pub enum Instruction {
     Sastore,
     Sipush(U2),
     Swap,
-    Tableswitch(U4,U4,U4,Vec<i32>),
-    Wide
-}
-
+    Tableswitch(U4, U4, U4, Vec<i32>),
+    Wide,
+    // --- 你可以继续添加自定义或未实现指令 ---
+    Unimplemented,
+} 

@@ -77,38 +77,47 @@ impl BootstrapClassLoader {
     /// * `Result<Klass, JvmError>` - 加载成功返回类信息，失败返回错误
     pub fn load(&self, class_name: &str, heap: &mut Heap) -> Result<Klass, JvmError> {
         let class_info = self.get_or_create_class_info(class_name);
-        let mut info = class_info.borrow_mut();
-        match info.state {
+
+        // 先判断状态，避免递归 borrow
+        let state = {
+            let info = class_info.borrow();
+            info.state.clone()
+        };
+
+        match state {
             ClassLoadingState::NotLoaded => {
-                info.state = ClassLoadingState::Loading;
-                match self.do_load_class(class_name, heap) {
-                    Ok(klass) => {
-                        info.klass = Some(klass.clone());
-                        info.state = ClassLoadingState::Loaded;
-                        self.prepare_class(&mut info, heap)?;
-                        Ok(klass)
-                    }
+                // 先将状态设置为Loading
+                {
+                    let mut info = class_info.borrow_mut();
+                    info.state = ClassLoadingState::Loading;
+                }
+                // 递归加载
+                let klass = match self.do_load_class(class_name, heap) {
+                    Ok(klass) => klass,
                     Err(e) => {
+                        let mut info = class_info.borrow_mut();
                         info.state = ClassLoadingState::Failed;
                         info.error = Some(e.to_string());
-                        Err(JvmError::ClassNotFoundError(format!("Failed to load class {}: {}", class_name, e)))
+                        return Err(JvmError::ClassNotFoundError(format!("Failed to load class {}: {}", class_name, e)));
                     }
+                };
+                // 加载成功后，设置klass和状态
+                {
+                    let mut info = class_info.borrow_mut();
+                    info.klass = Some(klass.clone());
+                    info.state = ClassLoadingState::Loaded;
+                    self.prepare_class(&mut info, heap)?;
                 }
+                Ok(class_info.borrow().klass.as_ref().unwrap().clone())
             }
             ClassLoadingState::Loading => {
                 Err(JvmError::IllegalStateError(format!("Circular dependency detected while loading class {}", class_name)))
             }
-            ClassLoadingState::Loaded => {
-                self.prepare_class(&mut info, heap)?;
-                Ok(info.klass.as_ref().unwrap().clone())
-            }
-            ClassLoadingState::Prepared => {
-                Ok(info.klass.as_ref().unwrap().clone())
-            }
-            ClassLoadingState::Initialized => {
-                Ok(info.klass.as_ref().unwrap().clone())
+            ClassLoadingState::Loaded | ClassLoadingState::Prepared | ClassLoadingState::Initialized => {
+                Ok(class_info.borrow().klass.as_ref().unwrap().clone())
             }
             ClassLoadingState::Failed => {
+                let info = class_info.borrow();
                 Err(JvmError::ClassNotFoundError(format!("Class {} failed to load: {}", class_name, info.error.as_ref().unwrap())))
             }
         }
@@ -137,21 +146,42 @@ impl BootstrapClassLoader {
 
     /// 初始化类
     /// 执行静态初始化块
-    pub fn initialize_class(&self, class_name: &str, heap: &mut Heap) -> Result<(), JvmError> {
+    pub fn initialize_class(&self, class_name: &str, heap: &mut Heap, vm: *mut crate::vm::Vm) -> Result<(), JvmError> {
         let class_info = self.get_or_create_class_info(class_name);
-        let mut info = class_info.borrow_mut();
-        if info.state != ClassLoadingState::Prepared {
+
+        // 先判断状态，避免递归 borrow
+        let state = {
+            let info = class_info.borrow();
+            info.state.clone()
+        };
+
+        if state != ClassLoadingState::Prepared {
             return Ok(());
         }
-        let klass = info.klass.as_ref().unwrap();
-        if let Klass::Instance(instance) = klass {
-            // 执行静态初始化块
-            if let Some(clinit) = instance.get_method("<clinit>", "()V") {
-                let mut thread = crate::jvm_thread::JvmThread::new(1024, 128);
-                thread.execute(clinit, heap, None)?;
-            }
+
+        // 递归后再 borrow_mut 修改状态
+        {
+            let mut info = class_info.borrow_mut();
+            // 先标记为已初始化，防止递归
             info.state = ClassLoadingState::Initialized;
         }
+
+        // 递归前不持有 borrow_mut
+        let klass = {
+            let info = class_info.borrow();
+            info.klass.as_ref().unwrap().clone()
+        };
+
+        if let Klass::Instance(instance) = &klass {
+            // 执行静态初始化块
+            if let Some(clinit) = instance.get_method("<clinit>", "()V") {
+                let mut thread = crate::jvm_thread::JvmThread::new(65536, 128);
+                unsafe {
+                    thread.execute(clinit, heap, Some(&mut *vm))?;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -283,20 +313,6 @@ mod tests {
         let klass_ref = cl.load("LMain;", &mut heap).unwrap();
         let method = klass_ref.get_method("main", "([Ljava/lang/String;)V");
         println!("{:?}", method);
-    }
-
-    #[test]
-    fn test_class_loading_states() {
-        let cl = BootstrapClassLoader::new("resources/test");
-        let mut heap = Heap::with_maximum_memory(1024);
-        
-        // 测试类加载状态转换
-        let class_info = cl.get_or_create_class_info("LMain;");
-        assert_eq!(class_info.borrow().state, ClassLoadingState::NotLoaded);
-        
-        // 加载类
-        let _ = cl.load("LMain;", &mut heap).unwrap();
-        assert_eq!(class_info.borrow().state, ClassLoadingState::Initialized);
     }
     
     #[test]

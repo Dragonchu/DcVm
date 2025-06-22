@@ -94,12 +94,16 @@ fn main() -> Result<(), JvmError> {
         .ok_or_else(|| JvmError::ClassNotFoundError("main method not found".to_string()))?;
 
     // 创建主线程
-    let mut java_main_thread = JvmThread::new(1024, 1024);
+    let mut java_main_thread = JvmThread::new(65536, 1024);
 
-    // 准备参数
-    let args: Vec<RawPtr> = vec![];
+    // 准备参数 - 创建一个空的String数组作为main方法的参数
+    // 在真实的JVM中，这里应该是命令行参数，但我们简化处理
+    let string_array_klass = vm.load("[Ljava/lang/String;")?;
+    let empty_string_array = vm.alloc_array(&string_array_klass, 0)
+        .map_err(|e| JvmError::IllegalStateError(format!("Failed to allocate array: {:?}", e)))?;
+    let args: Vec<RawPtr> = vec![empty_string_array];
 
-    // 调用main方法
+    // 调用main方法 - 传递None作为receiver，因为main是静态方法
     java_main_thread.invoke(None, main_method.clone(), main_class, args, &mut vm);
 
     Ok(())

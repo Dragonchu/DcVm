@@ -7,6 +7,7 @@ use reader::constant_pool::{ConstantPool, CpInfo};
 use reader::types::U2;
 use std::collections::HashMap;
 use std::process::id;
+use crate::logger::Logger;
 
 #[derive(Clone, Debug)]
 pub enum ClassState {
@@ -56,8 +57,17 @@ impl InstanceKlass {
         // process methods
         let mut m_name_desc_lookup = HashMap::new();
         let mut methods = Vec::new();
+        let class_name = class_file.get_class_name();
         for (idx, m_info) in (&class_file.methods).iter().enumerate() {
-            let method = Method::from_method_info(m_info, cp);
+            let mut method = Method::from_method_info(m_info, cp);
+            // 临时修复：只有java/lang/Object.registerNatives才加ACC_NATIVE
+            if class_name == "java/lang/Object" && method.name == "registerNatives" && method.descriptor == "()V" {
+                method.access_flags |= 0x0100; // ACC_NATIVE
+            }
+            // 调试：打印java/lang/Object的所有方法
+            if class_name == "java/lang/Object" {
+                println!("[Object methods] {}: {}.{}", idx, method.name, method.descriptor);
+            }
             m_name_desc_lookup.insert(method.get_fq_name_desc().clone(), idx);
             methods.push(method);
         }
@@ -95,14 +105,58 @@ impl InstanceKlass {
         }
     }
 
-    pub fn get_method(&self, name: &str, desc: &str) -> Option<&Method> {
-        let fq_name = format!("{}.{}", name, desc);
+    pub fn get_method(&self, method_name: &str, method_desc: &str) -> Option<&Method> {
+        Logger::log_fmt(format_args!("[get_method entry] name: {}, desc: {}", method_name, method_desc));
+        let fq_name = format!("{}.{}", method_name, method_desc);
+        Logger::log_fmt(format_args!("[get_method] 查找key: {}", fq_name));
+        Logger::log_fmt(format_args!("[get_method] 所有key: {:?}", self.m_name_desc_lookup.keys().collect::<Vec<_>>()));
         let opt_idx = self.m_name_desc_lookup.get(&fq_name);
         let idx = match opt_idx {
             Some(value) => value.clone(),
             None => return None,
         };
         self.methods.get(idx)
+    }
+
+    /// 在继承链上查找方法，支持方法重写
+    pub fn lookup_method(&self, method_name: &str, method_desc: &str, vm: &mut crate::vm::Vm) -> Option<Method> {
+        Logger::log_fmt(format_args!("[lookup_method entry] name: {}, desc: {}", method_name, method_desc));
+        // 首先在当前类中查找
+        if let Some(method) = self.get_method(method_name, method_desc) {
+            Logger::log_fmt(format_args!("[lookup_method] class: {}, method: {}, desc: {}, access_flags: 0x{:x}", self.class_name, method_name, method_desc, method.access_flags));
+            return Some(method.clone());
+        }
+        
+        // 特殊方法处理：<clinit>和<init>方法不应该在父类中查找
+        if method_name == "<clinit>" || method_name == "<init>" {
+            Logger::log_fmt(format_args!("[lookup_method] 特殊方法 {} 在当前类 {} 中未找到，不查找父类", method_name, self.class_name));
+            return None;
+        }
+        
+        // 如果当前类没有找到，在父类中查找
+        if !self.super_class.is_empty() {
+            Logger::log_fmt(format_args!("[lookup_method] 递归父类: {} 传递name: {}, desc: {}", self.super_class, method_name, method_desc));
+            // 尝试加载父类
+            if let Ok(super_klass) = vm.load(&self.super_class) {
+                if let crate::class::Klass::Instance(super_instance) = &super_klass {
+                    let result = super_instance.lookup_method(method_name, method_desc, vm);
+                    Logger::log_fmt(format_args!("[lookup_method] 父类返回: {:?}", result.as_ref().map(|m| m.name.as_str())));
+                    return result;
+                }
+            }
+        }
+        
+        None
+    }
+
+    /// 获取类名
+    pub fn get_class_name(&self) -> &str {
+        &self.class_name
+    }
+
+    /// 获取父类名
+    pub fn get_super_class_name(&self) -> &str {
+        &self.super_class
     }
 
     pub fn get_field_info(&self, cp_index: U2) -> (String, String, String) {
@@ -160,10 +214,18 @@ impl Klass {
         }
     }
 
-    pub fn get_method(&self, name: &str, desc: &str) -> Option<&Method> {
+    pub fn get_method(&self, method_name: &str, method_desc: &str) -> Option<&Method> {
         match self {
-            Klass::Instance(instance) => instance.get_method(name, desc),
+            Klass::Instance(instance) => instance.get_method(method_name, method_desc),
             _ => panic!(),
+        }
+    }
+
+    /// 在继承链上查找方法，支持方法重写
+    pub fn lookup_method(&self, method_name: &str, method_desc: &str, vm: &mut crate::vm::Vm) -> Option<Method> {
+        match self {
+            Klass::Instance(instance) => instance.lookup_method(method_name, method_desc, vm),
+            _ => None,
         }
     }
 
@@ -194,6 +256,14 @@ impl Klass {
         match self {
             Klass::Instance(instance) => instance.get_static_instance(field_name, desc),
             Klass::Array(_) => panic!(),
+        }
+    }
+
+    /// 获取类名
+    pub fn get_class_name(&self) -> Option<&str> {
+        match self {
+            Klass::Instance(instance) => Some(&instance.class_name),
+            Klass::Array(_) => None,
         }
     }
 }

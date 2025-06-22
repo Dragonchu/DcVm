@@ -7,7 +7,7 @@ use reader::{
 
 use crate::instructions::Instruction;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ArrayType {
     Boolean, // T_BOOLEAN = 4
     Char,    // T_CHAR = 5
@@ -433,6 +433,17 @@ impl Method {
 
     pub fn get_code(&self) -> &[u8] {
         &self.code
+    }
+
+    /// 检查方法是否为native方法
+    pub fn is_native(&self) -> bool {
+        // ACC_NATIVE = 0x0100
+        (self.access_flags & 0x0100) != 0
+    }
+
+    /// 获取方法的完整标识符，用于native方法注册表查找
+    pub fn get_native_key(&self, class_name: &str) -> String {
+        format!("{}.{}{}", class_name, self.name, self.descriptor)
     }
 
     pub fn from_method_info(method_info: &MethodInfo, constant_pool: &Vec<CpInfo>) -> Self {
