@@ -21,6 +21,7 @@ use crate::instructions::invokestatic;
 use crate::instructions::array_ops;
 use crate::instructions::invokevirtual;
 use crate::instructions::iinc;
+use crate::instructions::invokespecial;
 
 // 新增 Frame 结构体
 pub struct Frame {
@@ -104,6 +105,8 @@ impl JvmThread {
                 0x4c => load_store::exec_astore_1(frame, code, vm.as_deref_mut())?,
                 0x4d => load_store::exec_astore_2(frame, code, vm.as_deref_mut())?,
                 0x4e => load_store::exec_astore_3(frame, code, vm.as_deref_mut())?,
+                0x59 => stack::exec_dup(frame, code, vm.as_deref_mut())?,
+                0xb7 => invokespecial::exec_invokespecial(frame, code, vm.as_deref_mut())?,
                 0x60 => arithmetic::exec_iadd(frame, code, vm.as_deref_mut())?,
                 0x64 => arithmetic::exec_isub(frame, code, vm.as_deref_mut())?,
                 0x68 => arithmetic::exec_imul(frame, code, vm.as_deref_mut())?,
@@ -134,6 +137,7 @@ impl JvmThread {
                 0x40 => load_store::exec_istore_1(frame, code, vm.as_deref_mut())?,
                 0x41 => load_store::exec_istore_2(frame, code, vm.as_deref_mut())?,
                 0x42 => load_store::exec_istore_3(frame, code, vm.as_deref_mut())?,
+                0xb4 => object_ops::exec_getfield(frame, code, vm.as_deref_mut())?,
                 _ => return Err(JvmError::IllegalStateError(format!("Unknown opcode: 0x{:x}", opcode))),
             }
             // 如果frame被弹空，直接return Ok(())，防止后续访问self.frames[0]越界
@@ -158,7 +162,7 @@ impl JvmThread {
         // 创建新的frame，而不是使用默认的main frame
         let mut new_frame = Frame {
             pc: 0,
-            stack: OperandStack::new(method.max_stack),
+            stack: OperandStack::new(1024), // 使用固定的较大栈大小
             local_vars: LocalVars::new(method.max_locals),
             method: method.clone(),
         };

@@ -94,7 +94,7 @@ fn main() -> Result<(), JvmError> {
         .ok_or_else(|| JvmError::ClassNotFoundError("main method not found".to_string()))?;
 
     // 创建主线程
-    let mut java_main_thread = JvmThread::new(65536, 1024);
+    let mut java_main_thread = JvmThread::new(262144, 1024);
 
     // 准备参数 - 创建一个空的String数组作为main方法的参数
     // 在真实的JVM中，这里应该是命令行参数，但我们简化处理
