@@ -114,11 +114,11 @@ impl JvmThread {
                 0x84 => iinc::exec_iinc(frame, code, vm.as_deref_mut())?,
                 0x99 => control::exec_ifeq(frame, code, vm.as_deref_mut())?,
                 0x9a => control::exec_ifne(frame, code, vm.as_deref_mut())?,
-                0x9f => control::exec_ifge(frame, code, vm.as_deref_mut())?,
-                0xa7 => control::exec_goto(frame, code, vm.as_deref_mut())?,
-                0xac => {
-                    return Ok(());
-                }
+                0x9b => control::exec_ifge(frame, code, vm.as_deref_mut())?,
+                0x9e => control::exec_if_icmpeq(frame, code, vm.as_deref_mut())?,
+                0xa0 => control::exec_if_icmpne(frame, code, vm.as_deref_mut())?,
+                0xa3 => control::exec_goto(frame, code, vm.as_deref_mut())?,
+                0xaa => control::exec_tableswitch(frame, code, vm.as_deref_mut())?,
                 0xb1 => control::exec_return(frame, code, vm.as_deref_mut())?,
                 0xb2 => field_ops::exec_getstatic(frame, code, vm.as_deref_mut(), method)?,
                 0xb3 => field_ops::exec_putstatic(frame, code, vm.as_deref_mut(), method)?,
@@ -159,10 +159,10 @@ impl JvmThread {
     ) {
         jvm_log!("[JVM] 开始执行方法: {}.{}", method.get_name(), method.get_descriptor());
         
-        // 创建新的frame，而不是使用默认的main frame
+        // 创建新的frame，使用更大的栈大小防止栈溢出
         let mut new_frame = Frame {
             pc: 0,
-            stack: OperandStack::new(1024), // 使用固定的较大栈大小
+            stack: OperandStack::new(65536), // 使用更大的栈大小
             local_vars: LocalVars::new(method.max_locals),
             method: method.clone(),
         };

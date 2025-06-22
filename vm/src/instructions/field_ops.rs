@@ -16,23 +16,25 @@ pub fn exec_getstatic(frame: &mut Frame, code: &[u8], mut vm: Option<&mut Vm>, m
     
     // 处理System.out字段
     if class_name == "java/lang/System" && field_name == "out" {
-        let fake_ptr = RawPtr(std::ptr::null_mut());
+        // 用一个固定的非 null 指针模拟 PrintStream 实例
+        let fake_ptr = RawPtr(0x1 as *mut u8);
         frame.stack.push_obj_ref(fake_ptr);
         jvm_log!("[Pushed System.out object]");
+        return Ok(());
     } else {
         if let Some(ref mut vm) = vm {
             if let Some(field_value) = vm.get_static_field(&class_name, &field_name) {
                 match field_value {
-                    JvmValue::Int(value) => frame.stack.push_int(*value as i32),
-                    JvmValue::Long(value) => frame.stack.push_int((*value & 0xFFFF_FFFF) as i32),
-                    JvmValue::Float(value) => frame.stack.push_int(f32::from_bits(*value as u32).to_bits() as i32),
+                    JvmValue::Int(value) => frame.stack.push_int(value as i32),
+                    JvmValue::Long(value) => frame.stack.push_int((value & 0xFFFF_FFFF) as i32),
+                    JvmValue::Float(value) => frame.stack.push_int(f32::from_bits(value as u32).to_bits() as i32),
                     JvmValue::Double(value) => {
-                        frame.stack.push_int((*value >> 32) as i32);
-                        frame.stack.push_int((*value & 0xFFFF_FFFF) as i32);
+                        frame.stack.push_int((value >> 32) as i32);
+                        frame.stack.push_int((value & 0xFFFF_FFFF) as i32);
                     },
-                    JvmValue::Boolean(value) => frame.stack.push_int(*value as i32),
-                    JvmValue::Char(value) => frame.stack.push_int(*value as i32),
-                    JvmValue::ObjRef(ptr) => frame.stack.push_obj_ref(*ptr),
+                    JvmValue::Boolean(value) => frame.stack.push_int(value as i32),
+                    JvmValue::Char(value) => frame.stack.push_int(value as i32),
+                    JvmValue::ObjRef(ptr) => frame.stack.push_obj_ref(ptr),
                     JvmValue::Null => frame.stack.push_obj_ref(RawPtr(std::ptr::null_mut())),
                     _ => frame.stack.push_obj_ref(RawPtr(std::ptr::null_mut())),
                 }

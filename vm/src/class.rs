@@ -8,6 +8,7 @@ use reader::types::U2;
 use std::collections::HashMap;
 use std::process::id;
 use crate::logger::Logger;
+use crate::jvm_log;
 
 #[derive(Clone, Debug)]
 pub enum ClassState {
@@ -51,7 +52,7 @@ pub struct InstanceKlass {
 }
 
 impl InstanceKlass {
-    pub fn of(class_file: &ClassFile, class_id: usize, heap: &mut Heap) -> InstanceKlass {
+    pub fn of(class_file: &ClassFile, class_id: usize, heap: &mut Heap, super_klass: Option<&InstanceKlass>) -> InstanceKlass {
         let cp = &class_file.constant_pool;
 
         // process methods
@@ -64,10 +65,6 @@ impl InstanceKlass {
             if class_name == "java/lang/Object" && method.name == "registerNatives" && method.descriptor == "()V" {
                 method.access_flags |= 0x0100; // ACC_NATIVE
             }
-            // 调试：打印java/lang/Object的所有方法
-            if class_name == "java/lang/Object" {
-                println!("[Object methods] {}: {}.{}", idx, method.name, method.descriptor);
-            }
             m_name_desc_lookup.insert(method.get_fq_name_desc().clone(), idx);
             methods.push(method);
         }
@@ -77,14 +74,52 @@ impl InstanceKlass {
         let mut s_fields = Vec::new();
         let mut s_field_val = Vec::new();
         let mut f_name_desc_lookup = HashMap::new();
+        let mut cur_offset = 0;
+        if let Some(super_instance) = super_klass {
+            jvm_log!("[FieldOffset] 继承父类 {} 的字段偏移", super_instance.get_class_name());
+            for f in super_instance.get_instance_fields() {
+                let off = f.get_offset();
+                let size = match f.get_descriptor().as_str() {
+                    "J" | "D" => 8,
+                    desc if desc.starts_with("L") || desc.starts_with("[") => 8,
+                    _ => 4,
+                };
+                jvm_log!("[FieldOffset] 父类字段: {}.{} 偏移={} 大小={}", 
+                    super_instance.get_class_name(), f.get_name(), off, size);
+                if off + size > cur_offset {
+                    cur_offset = off + size;
+                }
+                // 将继承的字段添加到i_fields列表中
+                i_fields.push(f.clone());
+            }
+            jvm_log!("[FieldOffset] 继承后起始偏移: {}", cur_offset);
+        }
         for field_info in &class_file.fields {
-            let field = Field::new(field_info, cp);
+            let mut field = Field::new(field_info, cp);
             if field.is_static() {
                 let default_val = field.get_default();
                 f_name_desc_lookup.insert(field.get_fq_name_desc(), s_fields.len());
                 s_fields.push(field);
                 s_field_val.push(default_val);
             } else {
+                let desc = field.get_descriptor();
+                let align = match desc.as_str() {
+                    "J" | "D" => 8, // long/double 8字节
+                    desc if desc.starts_with("L") || desc.starts_with("[") => 8, // 引用类型8字节
+                    _ => 4, // 其他4字节
+                };
+                if cur_offset % align != 0 {
+                    cur_offset += align - (cur_offset % align);
+                }
+                field.set_offset(cur_offset);
+                let size = match desc.as_str() {
+                    "J" | "D" => 8,
+                    desc if desc.starts_with("L") || desc.starts_with("[") => 8,
+                    _ => 4,
+                };
+                jvm_log!("[FieldOffset] 分配字段: {}.{} 偏移={} 大小={} 对齐={}", 
+                    class_file.get_class_name(), field.get_name(), cur_offset, size, align);
+                cur_offset += size;
                 f_name_desc_lookup.insert(field.get_fq_name_desc(), i_fields.len());
                 i_fields.push(field);
             }

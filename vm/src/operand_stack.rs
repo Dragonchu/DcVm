@@ -9,16 +9,18 @@ pub struct OperandStack {
 
 impl OperandStack {
     pub fn new(max_size: usize) -> Self {
+        // 确保最小栈大小为1024，防止栈溢出
+        let actual_max_size = std::cmp::max(max_size, 1024);
         OperandStack {
-            max_size,
-            values: Vec::with_capacity(max_size),
-            obj_refs: Vec::with_capacity(max_size),
+            max_size: actual_max_size,
+            values: Vec::with_capacity(actual_max_size),
+            obj_refs: Vec::with_capacity(actual_max_size),
         }
     }
 
     pub fn push_int(&mut self, value: i32) {
         if self.values.len() >= self.max_size {
-            panic!("Stack overflow");
+            panic!("Stack overflow: values stack size {} >= max_size {}", self.values.len(), self.max_size);
         }
         self.values.push(value);
     }
@@ -33,7 +35,7 @@ impl OperandStack {
     
     pub fn push_obj_ref(&mut self, obj_ref: RawPtr) {
         if self.obj_refs.len() >= self.max_size {
-            panic!("Stack overflow");
+            panic!("Stack overflow: obj_refs stack size {} >= max_size {}", self.obj_refs.len(), self.max_size);
         }
         self.obj_refs.push(obj_ref);
     }

@@ -8,6 +8,11 @@ use crate::jvm_log;
 use std::collections::HashMap;
 use reader::constant_pool::ConstantPool;
 use std::cell::RefCell;
+use std::sync::Once;
+
+// 全局VM单例
+static mut VM_INSTANCE: Option<Vm> = None;
+static INIT: Once = Once::new();
 
 pub struct Vm {
     pub heap: RefCell<Heap>,
@@ -17,8 +22,29 @@ pub struct Vm {
     // Native方法注册表
     native_methods: NativeMethodRegistry,
     pub string_builder_map: RefCell<HashMap<crate::heap::RawPtr, String>>,
+    pub string_map: RefCell<HashMap<crate::heap::RawPtr, String>>,
 }
+
 impl Vm {
+    /// 获取全局VM实例
+    pub fn instance() -> &'static mut Vm {
+        unsafe {
+            INIT.call_once(|| {
+                VM_INSTANCE = Some(Vm::new("."));
+            });
+            VM_INSTANCE.as_mut().unwrap()
+        }
+    }
+    
+    /// 初始化VM（设置类路径）
+    pub fn initialize(class_path: &str) {
+        unsafe {
+            INIT.call_once(|| {
+                VM_INSTANCE = Some(Vm::new(class_path));
+            });
+        }
+    }
+
     pub fn new(paths: &str) -> Vm {
         Vm {
             class_loader: RefCell::new(BootstrapClassLoader::new(paths)),
@@ -26,10 +52,13 @@ impl Vm {
             static_fields: HashMap::new(),
             native_methods: NativeMethodRegistry::new(),
             string_builder_map: RefCell::new(HashMap::new()),
+            string_map: RefCell::new(HashMap::new()),
         }
     }
     
     pub fn load(&mut self, class_name: &str) -> Result<Klass, JvmError> {
+        // 先获取self裸指针
+        let self_ptr = self as *mut Vm;
         // 先借用class_loader和heap，load一次，clone结果
         let (klass, class_loader_ptr, heap_ptr): (Klass, *mut crate::class_loader::BootstrapClassLoader, *mut crate::heap::Heap);
         {
@@ -41,7 +70,7 @@ impl Vm {
         }
         // 用裸指针调用initialize_class，避免self多重借用
         unsafe {
-            (*class_loader_ptr).initialize_class(class_name, &mut *heap_ptr, self as *mut Vm)?;
+            (*class_loader_ptr).initialize_class(class_name, &mut *heap_ptr, Some(&mut *self_ptr))?;
         }
         Ok(klass)
     }
@@ -66,17 +95,20 @@ impl Vm {
     }
     
     /// 获取静态字段值
-    pub fn get_static_field(&self, class_name: &str, field_name: &str) -> Option<&JvmValue> {
-        self.static_fields.get(&(class_name.to_string(), field_name.to_string()))
+    pub fn get_static_field(&self, class_name: &str, field_name: &str) -> Option<JvmValue> {
+        self.static_fields.get(&(class_name.to_string(), field_name.to_string())).cloned()
     }
     
     /// 调用native方法
-    pub fn call_native_method(&self, class_name: &str, method_name: &str, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
+    pub fn call_native_method(&mut self, class_name: &str, method_name: &str, args: Vec<JvmValue>) -> Result<Option<JvmValue>, JvmError> {
         let full_name = format!("{}.{}", class_name, method_name);
         jvm_log!("[Native] call_native_method key: {}", full_name);
-        if let Some(native_method) = self.native_methods.get(&full_name) {
+        // 先取出方法引用，避免self多重借用
+        let native_method = self.native_methods.get(&full_name).map(|m| &**m as *const dyn NativeMethod);
+        if let Some(native_method_ptr) = native_method {
+            let native_method: &dyn NativeMethod = unsafe { &*native_method_ptr };
             jvm_log!("[Native] native method found for key: {}", full_name);
-            native_method.invoke(args)
+            native_method.invoke(args, self)
         } else {
             jvm_log!("[Native] native method NOT found for key: {}", full_name);
             Err(JvmError::IllegalStateError(format!("Native method not found: {}", full_name)))
@@ -107,12 +139,200 @@ impl Vm {
             return self.call_native_method(class_name, method_name, args);
         }
 
-        // 4. 对于Java方法，创建新的执行帧
+        // 4. 对于Java方法，创建新的执行帧并执行
         jvm_log!("[Dispatch] Calling Java method: {}.{}", class_name, method_name);
+
+        // 解析参数类型
+        let param_types = crate::instructions::method_utils::parse_method_descriptor(descriptor);
+        // 判断是否静态方法（ACC_STATIC = 0x0008）
+        let is_static = (method.access_flags & 0x0008) != 0;
         
-        // 这里应该创建新的执行帧并执行Java方法
-        // 由于这需要访问JvmThread，我们将在解释器中处理Java方法调用
-        Err(JvmError::IllegalStateError("Java method execution not implemented in dispatch".to_string()))
+        // 使用更大的栈大小防止栈溢出
+        let mut thread = crate::jvm_thread::JvmThread::new(65536, method.max_locals);
+        thread.frames.clear();
+        
+        // 构造Frame
+        let mut frame = crate::jvm_thread::Frame {
+            local_vars: crate::local_vars::LocalVars::new(method.max_locals),
+            stack: crate::operand_stack::OperandStack::new(65536), // 使用更大的栈大小
+            method: method.clone(),
+            pc: 0,
+        };
+        
+        let mut arg_index = 0;
+        // 实例方法第一个参数是this
+        if !is_static {
+            if let Some(JvmValue::ObjRef(this_ref)) = args.get(0) {
+                frame.local_vars.set_obj_ref(0, *this_ref);
+                arg_index = 1;
+            }
+        }
+        // 其余参数
+        for (i, param) in param_types.iter().enumerate() {
+            let arg = args.get(arg_index + i).cloned().unwrap_or(JvmValue::Null);
+            match param.as_str() {
+                "I" | "Z" | "B" | "C" | "S" => {
+                    if let JvmValue::Int(v) = arg {
+                        frame.local_vars.set_int(arg_index + i, v as i32);
+                    }
+                }
+                "J" => {
+                    if let JvmValue::Long(v) = arg {
+                        // long 拆成两个i32存储，低位在前
+                        frame.local_vars.set_int(arg_index + i, (v & 0xFFFF_FFFF) as i32);
+                        frame.local_vars.set_int(arg_index + i + 1, (v >> 32) as i32);
+                    }
+                }
+                "F" => {
+                    if let JvmValue::Float(v) = arg {
+                        frame.local_vars.set_int(arg_index + i, v as i32);
+                    }
+                }
+                "D" => {
+                    if let JvmValue::Double(v) = arg {
+                        frame.local_vars.set_int(arg_index + i, (v & 0xFFFF_FFFF) as i32);
+                        frame.local_vars.set_int(arg_index + i + 1, (v >> 32) as i32);
+                    }
+                }
+                s if s.starts_with("L") || s.starts_with("[") => {
+                    if let JvmValue::ObjRef(ptr) = arg {
+                        frame.local_vars.set_obj_ref(arg_index + i, ptr);
+                    }
+                }
+                _ => {}
+            }
+        }
+        thread.frames.push(frame);
+        
+        // 执行方法
+        let code = method.get_code();
+        let mut ret: Option<JvmValue> = None;
+        
+        // 添加执行步数限制，防止无限循环
+        let mut step_count = 0;
+        let max_steps = 10000; // 最大执行步数
+        
+        while !thread.frames.is_empty() && thread.frames[0].pc < code.len() && step_count < max_steps {
+            step_count += 1;
+            let opcode = code[thread.frames[0].pc];
+            thread.frames[0].pc += 1;
+            let frame = &mut thread.frames[0];
+            
+            match opcode {
+                0xac => { // ireturn
+                    if !frame.stack.is_values_empty() {
+                        let v = frame.stack.pop_int();
+                        ret = Some(JvmValue::Int(v as u32));
+                    }
+                    thread.frames.pop();
+                    break;
+                }
+                0xad => { // lreturn
+                    // TODO: long
+                    thread.frames.pop();
+                    break;
+                }
+                0xae => { // freturn
+                    // TODO: float
+                    thread.frames.pop();
+                    break;
+                }
+                0xaf => { // dreturn
+                    // TODO: double
+                    thread.frames.pop();
+                    break;
+                }
+                0xb0 => { // areturn
+                    if !frame.stack.is_obj_refs_empty() {
+                        let v = frame.stack.pop_obj_ref();
+                        ret = Some(JvmValue::ObjRef(v));
+                    }
+                    thread.frames.pop();
+                    break;
+                }
+                0xb1 => { // return
+                    thread.frames.pop();
+                    break;
+                }
+                _ => {
+                    // 复用主线程的VM和heap，直接调用execute方法单步执行
+                    // 这里直接复用frame和VM即可
+                    // 由于execute_one不存在，直接复用frame和VM的指令分发
+                    // 这里直接调用主线程的execute方法更安全
+                    // 但此处为单步，直接match分发
+                    match opcode {
+                        0x00 => (), // nop
+                        0x01 => crate::instructions::constants::exec_aconst_null(frame, code, Some(self))?,
+                        0x02 => crate::instructions::constants::exec_iconst_m1(frame, code, Some(self))?,
+                        0x03 => crate::instructions::constants::exec_iconst_0(frame, code, Some(self))?,
+                        0x04 => crate::instructions::constants::exec_iconst_1(frame, code, Some(self))?,
+                        0x05 => crate::instructions::constants::exec_iconst_2(frame, code, Some(self))?,
+                        0x06 => crate::instructions::constants::exec_iconst_3(frame, code, Some(self))?,
+                        0x07 => crate::instructions::constants::exec_iconst_4(frame, code, Some(self))?,
+                        0x08 => crate::instructions::constants::exec_iconst_5(frame, code, Some(self))?,
+                        0x10 => crate::instructions::constants::exec_bipush(frame, code, Some(self))?,
+                        0x11 => crate::instructions::ldc_ops::exec_sipush(frame, code, Some(self))?,
+                        0x12 => crate::instructions::ldc_ops::exec_ldc(frame, code, Some(self))?,
+                        0x13 => crate::instructions::ldc_ops::exec_ldc_w(frame, code, Some(self))?,
+                        0x14 => crate::instructions::ldc_ops::exec_ldc2_w(frame, code, Some(self))?,
+                        0x15 => crate::instructions::load_store::exec_iload(frame, code, Some(self))?,
+                        0x1a => crate::instructions::load_store::exec_iload_0(frame, code, Some(self))?,
+                        0x1b => crate::instructions::load_store::exec_iload_1(frame, code, Some(self))?,
+                        0x1c => crate::instructions::load_store::exec_iload_2(frame, code, Some(self))?,
+                        0x1d => crate::instructions::load_store::exec_iload_3(frame, code, Some(self))?,
+                        0x2a => crate::instructions::aload_0::exec_aload_0(frame, code, Some(self))?,
+                        0x2b => crate::instructions::load_store::exec_aload_1(frame, code, Some(self))?,
+                        0x2c => crate::instructions::load_store::exec_aload_2(frame, code, Some(self))?,
+                        0x2d => crate::instructions::load_store::exec_aload_3(frame, code, Some(self))?,
+                        0x36 => crate::instructions::load_store::exec_istore(frame, code, Some(self))?,
+                        0x3b => crate::instructions::load_store::exec_istore_0(frame, code, Some(self))?,
+                        0x3c => crate::instructions::load_store::exec_istore_1(frame, code, Some(self))?,
+                        0x3d => crate::instructions::load_store::exec_istore_2(frame, code, Some(self))?,
+                        0x3e => crate::instructions::load_store::exec_istore_3(frame, code, Some(self))?,
+                        0x4b => crate::instructions::load_store::exec_astore_0(frame, code, Some(self))?,
+                        0x4c => crate::instructions::load_store::exec_astore_1(frame, code, Some(self))?,
+                        0x4d => crate::instructions::load_store::exec_astore_2(frame, code, Some(self))?,
+                        0x4e => crate::instructions::load_store::exec_astore_3(frame, code, Some(self))?,
+                        0x59 => crate::instructions::stack::exec_dup(frame, code, Some(self))?,
+                        0xb7 => crate::instructions::invokespecial::exec_invokespecial(frame, code, Some(self))?,
+                        0x60 => crate::instructions::arithmetic::exec_iadd(frame, code, Some(self))?,
+                        0x64 => crate::instructions::arithmetic::exec_isub(frame, code, Some(self))?,
+                        0x68 => crate::instructions::arithmetic::exec_imul(frame, code, Some(self))?,
+                        0x6c => crate::instructions::arithmetic::exec_idiv(frame, code, Some(self))?,
+                        0x84 => crate::instructions::iinc::exec_iinc(frame, code, Some(self))?,
+                        0x99 => crate::instructions::control::exec_ifeq(frame, code, Some(self))?,
+                        0x9a => crate::instructions::control::exec_ifne(frame, code, Some(self))?,
+                        0x9f => crate::instructions::control::exec_ifge(frame, code, Some(self))?,
+                        0xa7 => crate::instructions::control::exec_goto(frame, code, Some(self))?,
+                        0xb2 => crate::instructions::field_ops::exec_getstatic(frame, code, Some(self), &method)?,
+                        0xb3 => crate::instructions::field_ops::exec_putstatic(frame, code, Some(self), &method)?,
+                        0xb6 => crate::instructions::invokevirtual::exec_invokevirtual(frame, code, Some(self))?,
+                        0xb5 => crate::instructions::object_ops::exec_putfield(frame, code, Some(self))?,
+                        0xbc => crate::instructions::array_ops::exec_newarray(frame, code, Some(self))?,
+                        0xbe => crate::instructions::array_ops::exec_arraylength(frame, code, Some(self))?,
+                        0x4f => crate::instructions::array_ops::exec_iastore(frame, code, Some(self))?,
+                        0x2e => crate::instructions::array_ops::exec_iaload(frame, code, Some(self))?,
+                        0xa2 => crate::instructions::control_extended::exec_if_icmpge(frame, code, Some(self))?,
+                        0xb0 => crate::instructions::control_extended::exec_areturn(frame, code, Some(self))?,
+                        0xbb => crate::instructions::object_ops::exec_new(frame, code, Some(self))?,
+                        0xb8 => crate::instructions::invokestatic::exec_invokestatic(frame, code, Some(self))?,
+                        0x3f => crate::instructions::load_store::exec_istore_0(frame, code, Some(self))?,
+                        0x40 => crate::instructions::load_store::exec_istore_1(frame, code, Some(self))?,
+                        0x41 => crate::instructions::load_store::exec_istore_2(frame, code, Some(self))?,
+                        0x42 => crate::instructions::load_store::exec_istore_3(frame, code, Some(self))?,
+                        0xb4 => crate::instructions::object_ops::exec_getfield(frame, code, Some(self))?,
+                        _ => return Err(JvmError::IllegalStateError(format!("Unknown opcode: 0x{:x}", opcode))),
+                    }
+                }
+            }
+        }
+        
+        // 检查是否因为步数限制而退出
+        if step_count >= max_steps {
+            return Err(JvmError::IllegalStateError(format!("Method execution exceeded maximum steps: {}", max_steps)));
+        }
+        
+        Ok(ret)
     }
     
     /// 创建字符串对象
@@ -177,6 +397,10 @@ impl Vm {
         }
         
         jvm_log!("[String] Successfully created string object: {:?}", string_ptr);
+        
+        // 将字符串对象注册到string_map中，以便System.out.println能够正确显示
+        self.string_map.borrow_mut().insert(string_ptr, string_content.to_string());
+        
         Ok(string_ptr)
     }
     

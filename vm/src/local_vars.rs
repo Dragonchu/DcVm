@@ -1,14 +1,16 @@
+use crate::JvmValue;
+
 #[derive(Debug)]
 pub struct LocalVars {
     max_locals: usize,
-    values: Vec<i32>,
+    values: Vec<JvmValue>,
 }
 
 impl LocalVars {
     pub fn new(max_locals: usize) -> Self {
         LocalVars {
             max_locals,
-            values: vec![0; max_locals],
+            values: vec![JvmValue::Null; max_locals],
         }
     }
 
@@ -16,29 +18,35 @@ impl LocalVars {
         if index >= self.max_locals {
             panic!("Local variable index out of bounds");
         }
-        self.values[index]
+        match self.values[index] {
+            JvmValue::Int(v) => v as i32,
+            _ => panic!("Not an int at index {}", index),
+        }
     }
 
     pub fn set_int(&mut self, index: usize, value: i32) {
         if index >= self.max_locals {
             panic!("Local variable index out of bounds");
         }
-        self.values[index] = value;
+        self.values[index] = JvmValue::Int(value as u32);
     }
 
     pub fn set_obj_ref(&mut self, index: usize, obj_ref: crate::heap::RawPtr) {
         if index >= self.max_locals {
             panic!("Local variable index out of bounds");
         }
-        // 用 i32 存储指针的低位（简化实现，真实实现应用 union 或 JvmValue）
-        self.values[index] = obj_ref.0 as i32;
+        self.values[index] = JvmValue::ObjRef(obj_ref);
     }
 
     pub fn get_obj_ref(&self, index: usize) -> crate::heap::RawPtr {
         if index >= self.max_locals {
             panic!("Local variable index out of bounds");
         }
-        crate::heap::RawPtr(self.values[index] as *mut u8)
+        match self.values[index] {
+            JvmValue::ObjRef(ptr) => ptr,
+            JvmValue::Null => crate::heap::RawPtr(std::ptr::null_mut()),
+            _ => panic!("Not an object reference at index {}", index),
+        }
     }
 }
 

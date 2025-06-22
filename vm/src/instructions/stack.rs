@@ -33,13 +33,13 @@ pub fn exec_pop2(frame: &mut Frame, _code: &[u8], _vm: Option<&mut Vm>) -> Resul
 // dup 指令
 pub fn exec_dup(frame: &mut Frame, _code: &[u8], _vm: Option<&mut Vm>) -> Result<(), JvmError> {
     crate::jvm_log!("dup");
-    // 根据栈顶内容的类型来决定复制什么
-    if !frame.stack.is_values_empty() {
-        let val = frame.stack.peek_int();
-        frame.stack.push_int(val);
-    } else if !frame.stack.is_obj_refs_empty() {
+    // 优先检查对象引用栈，然后检查值栈
+    if !frame.stack.is_obj_refs_empty() {
         let val = frame.stack.peek_obj_ref();
         frame.stack.push_obj_ref(val);
+    } else if !frame.stack.is_values_empty() {
+        let val = frame.stack.peek_int();
+        frame.stack.push_int(val);
     } else {
         return Err(JvmError::IllegalStateError("dup: 栈为空".to_string()));
     }

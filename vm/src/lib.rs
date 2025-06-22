@@ -39,7 +39,7 @@ macro_rules! def_instr {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum JvmValue {
     Boolean(u8),
     Byte(u8),

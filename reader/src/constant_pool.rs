@@ -101,7 +101,13 @@ pub trait ConstantPool {
 
 impl ConstantPool for Vec<CpInfo> {
     fn get_utf8_string(&self, index: U2) -> String {
-        let cp_info = self.get((index - 1) as usize).expect("Unknow string");
+        let actual_index = (index - 1) as usize;
+        if actual_index >= self.len() {
+            panic!("utf8_index {} 超出常量池范围 (长度: {})", index, self.len());
+        }
+        
+        let cp_info = &self[actual_index];
+        
         cp_info.to_utf8_string()
     }
     fn get_field_info(&self, field_index: U2) -> (String, String, String) {
@@ -215,10 +221,17 @@ pub trait ConstantPoolExt {
 
 impl ConstantPoolExt for Vec<CpInfo> {
     fn get_class_name(&self, class_index: crate::types::U2) -> String {
-        if let CpInfo::Class { name_index, .. } = &self[(class_index - 1) as usize] {
+        let actual_index = (class_index - 1) as usize;
+        if actual_index >= self.len() {
+            panic!("class_index {} 超出常量池范围 (长度: {})", class_index, self.len());
+        }
+        
+        let cp_info = &self[actual_index];
+        
+        if let CpInfo::Class { name_index, .. } = cp_info {
             self.get_utf8_string(*name_index)
         } else {
-            panic!("class_index不是Class类型");
+            panic!("索引 {} 处的常量不是Class类型，而是: {:?}", class_index, cp_info);
         }
     }
     fn get_methodref_info(&self, methodref_index: crate::types::U2) -> (String, String, String) {

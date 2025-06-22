@@ -24,6 +24,7 @@ pub struct Field {
     name: String,
     descriptor: String,
     access_flags: U2,
+    offset: usize,
 }
 impl Field {
     pub fn new(field_info: &FieldInfo, cp_pool: &dyn ConstantPool) -> Field {
@@ -31,6 +32,7 @@ impl Field {
             name: cp_pool.get_utf8_string(field_info.name_index),
             descriptor: cp_pool.get_utf8_string(field_info.descriptor_index),
             access_flags: field_info.access_flags,
+            offset: 0,
         }
     }
     
@@ -62,5 +64,13 @@ impl Field {
             "D" => JvmValue::Double(0),
             _ => JvmValue::Null,
         }
+    }
+
+    pub fn get_offset(&self) -> usize {
+        self.offset
+    }
+
+    pub fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
     }
 }

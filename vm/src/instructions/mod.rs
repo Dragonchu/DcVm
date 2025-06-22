@@ -8,10 +8,12 @@ pub mod macros;
 // 指令分发表
 pub mod dispatch;
 
+// 共享工具模块
+pub mod method_utils;
+
 // 指令模块
 pub mod aload_0;
 pub mod invokespecial;
-pub mod putfield;
 pub mod invokevirtual;
 
 // 新增的指令模块

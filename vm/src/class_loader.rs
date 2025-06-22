@@ -71,7 +71,6 @@ impl BootstrapClassLoader {
     /// # 参数
     /// * `class_name` - 要加载的类名
     /// * `heap` - 堆内存引用
-    /// * `vm` - VM实例引用
     /// 
     /// # 返回
     /// * `Result<Klass, JvmError>` - 加载成功返回类信息，失败返回错误
@@ -146,7 +145,7 @@ impl BootstrapClassLoader {
 
     /// 初始化类
     /// 执行静态初始化块
-    pub fn initialize_class(&self, class_name: &str, heap: &mut Heap, vm: *mut crate::vm::Vm) -> Result<(), JvmError> {
+    pub fn initialize_class(&self, class_name: &str, heap: &mut Heap, vm: Option<&mut crate::vm::Vm>) -> Result<(), JvmError> {
         let class_info = self.get_or_create_class_info(class_name);
 
         // 先判断状态，避免递归 borrow
@@ -176,9 +175,7 @@ impl BootstrapClassLoader {
             // 执行静态初始化块
             if let Some(clinit) = instance.get_method("<clinit>", "()V") {
                 let mut thread = crate::jvm_thread::JvmThread::new(65536, 128);
-                unsafe {
-                    thread.execute(clinit, heap, Some(&mut *vm))?;
-                }
+                thread.execute(clinit, heap, vm)?;
             }
         }
 
@@ -250,7 +247,16 @@ impl BootstrapClassLoader {
             .class_path_manager
             .search_class(class_name)
             .unwrap_or_else(|_| panic!("class {} not found", class_name));
-        InstanceKlass::of(&class_file, self.nxt_id.get(), heap)
+        // 递归加载父类InstanceKlass
+        let super_klass = if !class_file.get_super_class_name().is_empty() {
+            let super_class_name = class_file.get_super_class_name();
+            let super_klass = self.do_load_instance(super_class_name.as_str(), heap);
+            Some(Box::new(super_klass))
+        } else {
+            None
+        };
+        let super_klass_ref = super_klass.as_deref();
+        InstanceKlass::of(&class_file, self.nxt_id.get(), heap, super_klass_ref)
     }
 
     /// 设置静态字段值

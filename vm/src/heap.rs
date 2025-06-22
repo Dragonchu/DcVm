@@ -9,6 +9,7 @@ use log::debug;
 use reader::types::{U1, U2, U4, U8};
 use crate::JvmValue;
 use std::hash::{Hash, Hasher};
+use crate::jvm_log;
 
 #[bitfield(u64)]
 #[derive(PartialEq, Eq)]
@@ -26,7 +27,7 @@ pub(crate) struct Header {
     pub(crate) size: usize,
 }
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RawPtr(pub *mut u8);
 
 impl RawPtr {
@@ -67,6 +68,16 @@ impl RawPtr {
             field_values[index]
         } else {
             field.get_default()
+        }
+    }
+}
+
+impl fmt::Debug for RawPtr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.is_null() {
+            write!(f, "RawPtr(null)")
+        } else {
+            write!(f, "RawPtr(0x{:016x})", self.0 as u64)
         }
     }
 }
@@ -189,9 +200,40 @@ impl Heap {
     /// 分配一个对象，返回RawPtr
     pub fn alloc_object(&mut self, klass: &InstanceKlass) -> Result<RawPtr, AllocError> {
         let header_size = std::mem::size_of::<Header>();
-        let field_size = klass.get_instance_fields().len() * 8; // 8字节对齐，支持int/引用
-        let total_size = Self::align_to_8_bytes(header_size + field_size);
+        jvm_log!("[AllocObject] 分配对象: {}, header_size={}", klass.class_name, header_size);
+        
+        // 计算最大字段offset+size
+        let mut max_end = 0;
+        for field in klass.get_instance_fields() {
+            let offset = field.get_offset();
+            let size = match field.get_descriptor().as_str() {
+                "J" | "D" => 8,
+                desc if desc.starts_with("L") || desc.starts_with("[") => 8,
+                _ => 4,
+            };
+            jvm_log!("[AllocObject] 字段: {}.{} 偏移={} 大小={}", 
+                klass.class_name, field.get_name(), offset, size);
+            if offset + size > max_end {
+                max_end = offset + size;
+            }
+        }
+        
+        // 确保至少分配足够的空间来容纳字段访问
+        // 如果max_end为0，说明没有实例字段，但我们需要至少分配一些空间
+        // 来避免字段访问时的内存越界
+        if max_end == 0 {
+            max_end = 16; // 至少分配16字节的字段空间
+            jvm_log!("[AllocObject] 没有实例字段，分配最小字段空间: {}", max_end);
+        }
+        
+        // 字段偏移已经是从对象头部之后开始的，所以直接使用max_end
+        let total_size = Self::align_to_8_bytes(header_size + max_end);
+        jvm_log!("[AllocObject] 对象总大小: header_size({}) + max_end({}) = {}", 
+            header_size, max_end, total_size);
+        
         let ptr = self.cur.alloc(total_size).ok_or(AllocError::OOM)?;
+        jvm_log!("[AllocObject] 分配成功: {:?}", ptr);
+        
         // 初始化对象头部
         unsafe {
             let header_ptr = ptr.0 as *mut Header;
@@ -228,6 +270,8 @@ impl Heap {
     pub fn put_field(&mut self, obj: RawPtr, field_offset: usize, value: JvmValue) {
         let header_size = std::mem::size_of::<Header>();
         let addr = unsafe { obj.0.add(header_size + field_offset) };
+        jvm_log!("[PutField] 设置字段: obj={:?}, header_size={}, field_offset={}, addr=0x{:016x}", 
+            obj, header_size, field_offset, addr as u64);
         match value {
             JvmValue::Boolean(v) => unsafe { *(addr as *mut u8) = v },
             JvmValue::Byte(v) => unsafe { *(addr as *mut u8) = v },
@@ -242,13 +286,37 @@ impl Heap {
         }
     }
 
-    /// 获取对象字段
-    pub fn get_field(&self, obj: RawPtr, field_offset: usize) -> JvmValue {
+    /// 获取对象字段（支持多类型）
+    pub fn get_field(&self, obj: RawPtr, field_offset: usize, field_desc: &str) -> JvmValue {
         let header_size = std::mem::size_of::<Header>();
         let addr = unsafe { obj.0.add(header_size + field_offset) };
-        // 这里只举例 int
-        let v = unsafe { *(addr as *const i32) };
-        JvmValue::Int(v as u32)
+        match field_desc {
+            "I" | "S" | "B" | "Z" => {
+                let v = unsafe { *(addr as *const i32) };
+                JvmValue::Int(v as u32)
+            }
+            "J" => {
+                let v = unsafe { *(addr as *const i64) };
+                JvmValue::Long(v as u64)
+            }
+            "F" => {
+                let v = unsafe { *(addr as *const u32) };
+                JvmValue::Float(v as u64)
+            }
+            "D" => {
+                let v = unsafe { *(addr as *const u64) };
+                JvmValue::Double(v)
+            }
+            "C" => {
+                let v = unsafe { *(addr as *const u16) };
+                JvmValue::Char(v)
+            }
+            desc if desc.starts_with("L") || desc.starts_with("[") => {
+                let v = unsafe { *(addr as *const RawPtr) };
+                JvmValue::ObjRef(v)
+            }
+            _ => JvmValue::Null,
+        }
     }
 
     /// 设置数组元素
