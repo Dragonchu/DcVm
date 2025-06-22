@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 use crate::jvm_thread::Frame;
 use crate::error::JvmError;
 use crate::vm::Vm;
@@ -87,7 +89,7 @@ pub fn exec_iastore(frame: &mut Frame, _code: &[u8], _vm: Option<&mut crate::vm:
     }
     
     // 存储数组元素
-    let mut storage = get_array_storage();
+    let storage = get_array_storage();
     if let Some(array_data) = storage.get_mut(&array_ref) {
         if (index as usize) < array_data.len() {
             array_data[index as usize] = value;

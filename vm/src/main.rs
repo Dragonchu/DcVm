@@ -67,14 +67,14 @@ fn main() -> Result<(), JvmError> {
     };
     
     // 获取类文件所在目录
-    let class_dir = if test_path.ends_with(".class") || test_path.ends_with(".java") {
+    let _class_dir = if test_path.ends_with(".class") || test_path.ends_with(".java") {
         std::path::Path::new(test_path).parent().unwrap().to_str().unwrap()
     } else {
         // 默认在test目录下查找
         "test"
     };
-    let class_dir = std::fs::canonicalize(class_dir)
-        .unwrap_or_else(|_| panic!("类路径不存在: {}", class_dir))
+    let _class_dir = std::fs::canonicalize(_class_dir)
+        .unwrap_or_else(|_| panic!("类路径不存在: {}", _class_dir))
         .to_str()
         .unwrap()
         .to_string();

@@ -8,11 +8,6 @@ use crate::jvm_log;
 use std::collections::HashMap;
 use reader::constant_pool::ConstantPool;
 use std::cell::RefCell;
-use std::sync::Once;
-
-// 全局VM单例
-static mut VM_INSTANCE: Option<Vm> = None;
-static INIT: Once = Once::new();
 
 pub struct Vm {
     pub heap: RefCell<Heap>,
@@ -26,25 +21,6 @@ pub struct Vm {
 }
 
 impl Vm {
-    /// 获取全局VM实例
-    pub fn instance() -> &'static mut Vm {
-        unsafe {
-            INIT.call_once(|| {
-                VM_INSTANCE = Some(Vm::new("."));
-            });
-            VM_INSTANCE.as_mut().unwrap()
-        }
-    }
-    
-    /// 初始化VM（设置类路径）
-    pub fn initialize(class_path: &str) {
-        unsafe {
-            INIT.call_once(|| {
-                VM_INSTANCE = Some(Vm::new(class_path));
-            });
-        }
-    }
-
     pub fn new(paths: &str) -> Vm {
         Vm {
             class_loader: RefCell::new(BootstrapClassLoader::new(paths)),
