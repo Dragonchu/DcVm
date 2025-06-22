@@ -206,3 +206,47 @@ impl TryFrom<u8> for ConstantInfoTag {
         }
     }
 }
+
+pub trait ConstantPoolExt {
+    fn get_class_name(&self, class_index: crate::types::U2) -> String;
+    fn get_methodref_info(&self, methodref_index: crate::types::U2) -> (String, String, String);
+    fn get_fieldref_info(&self, fieldref_index: crate::types::U2) -> (String, String, String);
+}
+
+impl ConstantPoolExt for Vec<CpInfo> {
+    fn get_class_name(&self, class_index: crate::types::U2) -> String {
+        if let CpInfo::Class { name_index, .. } = &self[(class_index - 1) as usize] {
+            self.get_utf8_string(*name_index)
+        } else {
+            panic!("class_index不是Class类型");
+        }
+    }
+    fn get_methodref_info(&self, methodref_index: crate::types::U2) -> (String, String, String) {
+        if let CpInfo::MethodRef { class_index, name_and_type_index, .. } = &self[(methodref_index - 1) as usize] {
+            let class_name = self.get_class_name(*class_index);
+            if let CpInfo::NameAndType { name_index, descriptor_index, .. } = &self[(*name_and_type_index - 1) as usize] {
+                let method_name = self.get_utf8_string(*name_index);
+                let method_desc = self.get_utf8_string(*descriptor_index);
+                (class_name, method_name, method_desc)
+            } else {
+                panic!("name_and_type_index不是NameAndType类型");
+            }
+        } else {
+            panic!("methodref_index不是MethodRef类型");
+        }
+    }
+    fn get_fieldref_info(&self, fieldref_index: crate::types::U2) -> (String, String, String) {
+        if let CpInfo::FieldRef { class_index, name_and_type_index, .. } = &self[(fieldref_index - 1) as usize] {
+            let class_name = self.get_class_name(*class_index);
+            if let CpInfo::NameAndType { name_index, descriptor_index, .. } = &self[(*name_and_type_index - 1) as usize] {
+                let field_name = self.get_utf8_string(*name_index);
+                let field_desc = self.get_utf8_string(*descriptor_index);
+                (class_name, field_name, field_desc)
+            } else {
+                panic!("name_and_type_index不是NameAndType类型");
+            }
+        } else {
+            panic!("fieldref_index不是FieldRef类型");
+        }
+    }
+}

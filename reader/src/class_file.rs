@@ -71,6 +71,9 @@ impl ClassFile {
     }
 
     pub fn get_class_name(&self) -> String {
+        if self.this_class == 0 {
+            panic!("Invalid this_class index: 0");
+        }
         match self.constant_pool.get((self.this_class -1) as usize) {
             Some(CpInfo::Class { tag: _, name_index }) => {
                 self.constant_pool.get_utf8_string(*name_index)
@@ -80,6 +83,10 @@ impl ClassFile {
     }
 
     pub fn get_super_class_name(&self) -> String {
+        if self.super_class == 0 {
+            // java.lang.Object的super_class为0
+            return "".to_string();
+        }
         match self.constant_pool.get((self.super_class -1 ) as usize) {
             Some(CpInfo::Class { tag: _, name_index }) => {
                 self.constant_pool.get_utf8_string(*name_index)

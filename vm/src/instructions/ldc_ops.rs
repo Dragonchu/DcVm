@@ -18,6 +18,11 @@ pub fn exec_ldc(frame: &mut Frame, code: &[u8], mut vm: Option<&mut crate::vm::V
     let index = code[frame.pc] as usize;
     frame.pc += 1;
     let cp = &frame.method.constant_pool;
+    
+    jvm_log!("[LDC] 常量池长度: {}, 访问索引: {}", cp.len(), index);
+    if index == 0 || index > cp.len() {
+        return Err(JvmError::IllegalStateError(format!("常量池索引越界: index={}, len={}", index, cp.len())));
+    }
     match &cp[index - 1] {
         reader::constant_pool::CpInfo::Integer { bytes, .. } => {
             let value = *bytes as i32;
@@ -30,11 +35,9 @@ pub fn exec_ldc(frame: &mut Frame, code: &[u8], mut vm: Option<&mut crate::vm::V
         reader::constant_pool::CpInfo::String { string_index, .. } => {
             let s = cp.get_utf8_string(*string_index);
             jvm_log!("ldc string: {}", s);
-            // 创建字符串对象并推入栈
             if let Some(ref mut vm) = vm {
                 match vm.create_string_object(&s) {
                     Ok(string_ptr) => {
-                        // 将对象引用推入栈
                         frame.stack.push_obj_ref(string_ptr);
                     }
                     Err(e) => {
@@ -44,6 +47,13 @@ pub fn exec_ldc(frame: &mut Frame, code: &[u8], mut vm: Option<&mut crate::vm::V
             } else {
                 panic!("ldc指令需要有效的VM引用以创建字符串对象，但vm为None");
             }
+        }
+        reader::constant_pool::CpInfo::Class { name_index, .. } => {
+            // 正确解引用Class类型到Utf8
+            let class_name = cp.get_utf8_string(*name_index);
+            jvm_log!("ldc class: {}", class_name);
+            // 这里可以根据需要推入class对象引用，暂时推入null
+            frame.stack.push_obj_ref(RawPtr(std::ptr::null_mut()));
         }
         _ => {
             return Err(JvmError::IllegalStateError(format!("ldc: 常量池索引{}类型不支持", index)));

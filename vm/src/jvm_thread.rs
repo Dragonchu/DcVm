@@ -56,6 +56,11 @@ impl JvmThread {
         }
         self.call_depth += 1;
         
+        // 确保第一个frame使用正确的方法（包含常量池）
+        if !self.frames.is_empty() {
+            self.frames[0].method = method.clone();
+        }
+        
         let code = method.get_code();
         // 主循环：只要还有frame且pc未越界就继续执行
         while !self.frames.is_empty() && self.frames[0].pc < code.len() {
