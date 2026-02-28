@@ -17,7 +17,7 @@
 
 ## 🛠️ Technology Stack
 
-- **Language**: [Rust](https://www.rust-lang.org/) (90%+ code generated with [Cursor](https://cursor.sh/))
+- **Language**: [Rust](https://www.rust-lang.org/)
 - **Target**: Java 1.8 JVM Specification
 - **Build System**: Cargo
 - **Testing**: Custom test automation scripts
@@ -159,7 +159,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🛠️ 技术栈
 
-- **语言**: [Rust](https://www.rust-lang.org/) (90%+ 代码由 [Cursor](https://cursor.sh/) 生成)
+- **语言**: [Rust](https://www.rust-lang.org/)
 - **目标**: Java 1.8 JVM 规范
 - **构建系统**: Cargo
 - **测试**: 自定义测试自动化脚本
